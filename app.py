@@ -1,7 +1,7 @@
 # app.py
 import streamlit as st
 import pandas as pd
-import joblib
+import joblib  # use joblib instead of cloudpickle
 import folium
 from streamlit_folium import st_folium
 
@@ -9,8 +9,9 @@ from streamlit_folium import st_folium
 # 1. LOAD MODELS
 # =============================================
 def load_model(filename):
-    return joblib.load(filename)
+    return joblib.load(filename)  # simple joblib load
 
+# Load the trained pipelines
 pipeline_lr = load_model("linear_regression_model.pkl")
 pipeline_dt = load_model("decision_tree_model.pkl")
 pipeline_rf = load_model("random_forest_model.pkl")
