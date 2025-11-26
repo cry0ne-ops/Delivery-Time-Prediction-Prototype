@@ -2,6 +2,8 @@
 import streamlit as st
 import pandas as pd
 import cloudpickle
+import folium
+from streamlit_folium import st_folium
 
 # =============================================
 # 1. LOAD MODELS
@@ -21,10 +23,11 @@ models = {
 }
 
 # =============================================
-# 2. STREAMLIT APP LAYOUT
+# 2. APP LAYOUT
 # =============================================
+st.set_page_config(layout="wide")
 st.title("Delivery Time Prediction App")
-st.write("Predict delivery time based on order details and conditions.")
+st.write("Predict delivery time and visualize locations on the map.")
 
 # Select model
 selected_model_name = st.selectbox("Select Model", list(models.keys()))
@@ -65,3 +68,36 @@ input_df = user_input_features()
 if st.button("Predict Delivery Time"):
     prediction = model.predict(input_df)[0]
     st.success(f"Predicted Delivery Time: {prediction:.2f} minutes")
+
+    # =============================================
+    # 5. MAP VISUALIZATION
+    # =============================================
+    m = folium.Map(location=[input_df["Restaurant_latitude"][0], input_df["Restaurant_longitude"][0]], zoom_start=12)
+    
+    # Restaurant marker
+    folium.Marker(
+        location=[input_df["Restaurant_latitude"][0], input_df["Restaurant_longitude"][0]],
+        popup="Restaurant",
+        icon=folium.Icon(color="green", icon="cutlery", prefix="fa")
+    ).add_to(m)
+    
+    # Delivery location marker
+    folium.Marker(
+        location=[input_df["Delivery_location_latitude"][0], input_df["Delivery_location_longitude"][0]],
+        popup="Delivery Location",
+        icon=folium.Icon(color="red", icon="truck", prefix="fa")
+    ).add_to(m)
+    
+    # Draw line between points
+    folium.PolyLine(
+        locations=[
+            [input_df["Restaurant_latitude"][0], input_df["Restaurant_longitude"][0]],
+            [input_df["Delivery_location_latitude"][0], input_df["Delivery_location_longitude"][0]]
+        ],
+        color="blue",
+        weight=3,
+        opacity=0.7
+    ).add_to(m)
+    
+    st.subheader("Route Map")
+    st_folium(m, width=700, height=500)
