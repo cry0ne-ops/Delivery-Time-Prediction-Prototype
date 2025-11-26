@@ -1,7 +1,7 @@
 # app.py
 import streamlit as st
 import pandas as pd
-import cloudpickle
+import joblib
 import folium
 from streamlit_folium import st_folium
 
@@ -9,8 +9,7 @@ from streamlit_folium import st_folium
 # 1. LOAD MODELS
 # =============================================
 def load_model(filename):
-    with open(filename, "rb") as f:
-        return cloudpickle.load(f)
+    return joblib.load(filename)
 
 pipeline_lr = load_model("linear_regression_model.pkl")
 pipeline_dt = load_model("decision_tree_model.pkl")
