@@ -1,15 +1,8 @@
-# Core libraries
-pandas==2.2.0
-numpy==1.26.0
-
-# Machine learning
+streamlit==1.29.0
+pandas==2.1.1
+numpy==1.26.4
 scikit-learn==1.6.1
 joblib==1.3.2
-
-# Streamlit and UI
-streamlit==1.26.1
-streamlit-folium==0.21.0
 folium==0.18.3
-
-# Optional (if your pipeline uses other libraries)
-scipy==1.12.1
+streamlit-folium==0.21.0
+cloudpickle==2.2.1
