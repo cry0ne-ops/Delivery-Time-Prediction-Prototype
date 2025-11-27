@@ -1,23 +1,50 @@
 # ============================================
-# Streamlit App: Delivery Time Prediction (Improved UI + Random Data)
+# Streamlit App: Delivery Time Prediction with Model Accuracy
 # ============================================
 
 import streamlit as st
 import pandas as pd
 import joblib
-import random
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import numpy as np
+from sklearn.model_selection import train_test_split
 
 # ============================================
-# 1. Load Preprocessing and Models
+# 1. Load Dataset & Models
 # ============================================
 
+df = pd.read_csv("update dataset (1).csv")  # Update path if needed
+
+# Load preprocessing and models
 preprocessor = joblib.load("preprocessing_pipeline.pkl")
 lr_model = joblib.load("linear_regression_model.pkl")
 dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 2. Prediction Function
+# 2. Preprocess Dataset for Evaluation
+# ============================================
+
+TARGET = "Time_taken(min)"
+FEATURES = [
+    "Delivery_person_Age","Delivery_person_Ratings",
+    "Restaurant_latitude","Restaurant_longitude",
+    "Delivery_location_latitude","Delivery_location_longitude",
+    "multiple_deliveries","order_day_of_week","order_month",
+    "order_hour","pickup_hour","pickup_delay_min",
+    "Weatherconditions","Road_traffic_density",
+    "Type_of_order","Type_of_vehicle","Festival"
+]
+
+X = df[FEATURES]
+y = df[TARGET]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# ============================================
+# 3. Prediction Function
 # ============================================
 
 def predict_delivery_time(input_data):
@@ -30,6 +57,7 @@ def predict_delivery_time(input_data):
         "order_hour","pickup_hour","pickup_delay_min"
     ]
     df_input[numeric_features] = df_input[numeric_features].astype(float)
+    
     return {
         "Linear Regression": round(lr_model.predict(df_input)[0],2),
         "Decision Tree": round(dt_model.predict(df_input)[0],2),
@@ -37,115 +65,82 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 3. Random Data Generator
-# ============================================
-
-def generate_random_delivery_data():
-    return {
-        "Delivery_person_Age": random.randint(18, 60),
-        "Delivery_person_Ratings": round(random.uniform(2.5, 5.0), 1),
-        "Restaurant_latitude": round(random.uniform(12.90, 13.00), 6),
-        "Restaurant_longitude": round(random.uniform(77.55, 77.65), 6),
-        "Delivery_location_latitude": round(random.uniform(12.90, 13.00), 6),
-        "Delivery_location_longitude": round(random.uniform(77.55, 77.65), 6),
-        "multiple_deliveries": random.randint(1, 5),
-        "order_day_of_week": random.randint(0, 6),
-        "order_month": random.randint(1, 12),
-        "order_hour": random.randint(8, 22),
-        "pickup_hour": random.randint(8, 23),
-        "pickup_delay_min": random.randint(0, 30),
-        "Weatherconditions": random.choice(["Sunny","Cloudy","Rainy","Stormy","Fog"]),
-        "Road_traffic_density": random.choice(["Low","Medium","High","Jam"]),
-        "Type_of_order": random.choice(["Vegetables","Meat","Meat and Vegetables"]),
-        "Type_of_vehicle": random.choice(["Bike","Car","Scooter"]),
-        "Festival": random.choice(["Yes","No"])
-    }
-
-# ============================================
 # 4. Streamlit UI
 # ============================================
 
-st.set_page_config(
-    page_title="Delivery Time Predictor 🚀",
-    page_icon="🛵",
-    layout="wide"
-)
+st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
 
 st.title("🛵 Delivery Time Prediction System")
-st.markdown(
-    "Enter delivery details or generate random data to predict delivery times using three models."
-)
+st.markdown("Enter delivery details to predict time and see model accuracies.")
 
-# ---- Generate Random Data Button ----
-if st.button("🎲 Generate Random Delivery Data"):
-    random_data = generate_random_delivery_data()
-    for key, value in random_data.items():
-        st.session_state[key] = value
-    st.success("✅ Random delivery data generated!")
+# ---------------- Inputs ----------------
+col1, col2 = st.columns(2)
 
-# ---- Input Sections ----
-with st.expander("📍 Restaurant & Delivery Location"):
-    col1, col2 = st.columns(2)
-    with col1:
-        restaurant_lat = st.number_input("Restaurant Latitude", format="%.6f", key="Restaurant_latitude")
-        restaurant_long = st.number_input("Restaurant Longitude", format="%.6f", key="Restaurant_longitude")
-    with col2:
-        delivery_lat = st.number_input("Delivery Latitude", format="%.6f", key="Delivery_location_latitude")
-        delivery_long = st.number_input("Delivery Longitude", format="%.6f", key="Delivery_location_longitude")
+with col1:
+    delivery_person_age = st.number_input("Delivery Person Age", 18, 60)
+    delivery_person_rating = st.number_input("Delivery Person Rating", 0.0, 5.0, 0.1)
+    pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120)
+    order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"])
 
-with st.expander("🧑 Delivery Person Info"):
-    col1, col2 = st.columns(2)
-    with col1:
-        age = st.number_input("Delivery Person Age", 18, 60, key="Delivery_person_Age")
-        rating = st.number_input("Delivery Person Rating", 0.0, 5.0, 0.1, key="Delivery_person_Ratings")
-    with col2:
-        multiple_deliveries = st.number_input("Multiple Deliveries", 1, 10, key="multiple_deliveries")
+with col2:
+    # Dummy example lat/lon; ideally, use actual inputs or map widget
+    restaurant_lat = st.number_input("Restaurant Latitude", 12.9716)
+    restaurant_long = st.number_input("Restaurant Longitude", 77.5946)
+    delivery_lat = st.number_input("Delivery Latitude", 12.9352)
+    delivery_long = st.number_input("Delivery Longitude", 77.6245)
 
-with st.expander("⏰ Order & Pickup Info"):
-    col1, col2 = st.columns(2)
-    with col1:
-        order_day = st.number_input("Order Day of Week (0=Mon,6=Sun)", 0, 6, key="order_day_of_week")
-        order_month = st.number_input("Order Month", 1, 12, key="order_month")
-        order_hour = st.number_input("Order Hour", 0, 23, key="order_hour")
-    with col2:
-        pickup_hour = st.number_input("Pickup Hour", 0, 23, key="pickup_hour")
-        pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120, key="pickup_delay_min")
-
-with st.expander("🌦️ Traffic & Conditions"):
-    col1, col2 = st.columns(2)
-    with col1:
-        weather = st.selectbox("Weather", ["Sunny","Cloudy","Rainy","Stormy","Fog"], key="Weatherconditions")
-        traffic = st.selectbox("Traffic Density", ["Low","Medium","High","Jam"], key="Road_traffic_density")
-    with col2:
-        order_type = st.selectbox("Type of Order", ["Snack","Meal","Drinks","Other"], key="Type_of_order")
-        vehicle = st.selectbox("Vehicle Type", ["Bike","Car","Scooter"], key="Type_of_vehicle")
-        festival = st.selectbox("Festival", ["Yes","No"], key="Festival")
-
-# ---- Predict Button ----
+# ---------------- Predict Button ----------------
 if st.button("🚀 Predict Delivery Time"):
-    input_data = {key: st.session_state[key] for key in [
-        "Delivery_person_Age","Delivery_person_Ratings",
-        "Restaurant_latitude","Restaurant_longitude",
-        "Delivery_location_latitude","Delivery_location_longitude",
-        "multiple_deliveries","order_day_of_week","order_month",
-        "order_hour","pickup_hour","pickup_delay_min",
-        "Weatherconditions","Road_traffic_density","Type_of_order",
-        "Type_of_vehicle","Festival"
-    ]}
     
+    input_data = {
+        "Delivery_person_Age": delivery_person_age,
+        "Delivery_person_Ratings": delivery_person_rating,
+        "Restaurant_latitude": restaurant_lat,
+        "Restaurant_longitude": restaurant_long,
+        "Delivery_location_latitude": delivery_lat,
+        "Delivery_location_longitude": delivery_long,
+        "multiple_deliveries": 1,
+        "order_day_of_week": 3,
+        "order_month": 11,
+        "order_hour": 18,
+        "pickup_hour": 18,
+        "pickup_delay_min": pickup_delay,
+        "Weatherconditions": "Sunny",
+        "Road_traffic_density": "High",
+        "Type_of_order": order_type,
+        "Type_of_vehicle": "Bike",
+        "Festival": "No"
+    }
+
+    # ---------- Predictions ----------
     predictions = predict_delivery_time(input_data)
+    st.subheader("📊 Predicted Delivery Times (minutes)")
+    st.write(predictions)
     
-    st.markdown("### 📊 Predictions by Model")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Linear Regression", f"{predictions['Linear Regression']} min")
-    col2.metric("Decision Tree", f"{predictions['Decision Tree']} min")
-    col3.metric("Random Forest", f"{predictions['Random Forest']} min")
-    
-    # Bar chart
+    # Bar chart comparison
     df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"]).set_index("Model")
     st.bar_chart(df_pred)
     
-    # Highlight fastest
-    fastest_model = df_pred["Predicted Time"].idxmin()
-    fastest_time = df_pred["Predicted Time"].min()
-    st.success(f"✅ Fastest Predicted Delivery: {fastest_model} ({fastest_time} min)")
+    # ---------- Model Accuracy ----------
+    st.subheader("📈 Model Accuracy on Test Set")
+    
+    models = {
+        "Linear Regression": lr_model,
+        "Decision Tree": dt_model,
+        "Random Forest": rf_model
+    }
+    
+    metrics_list = []
+    for name, model in models.items():
+        y_pred = model.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+        metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
+    
+    metrics_df = pd.DataFrame(metrics_list).set_index("Model")
+    st.dataframe(metrics_df.style.format("{:.2f}"))
+    
+    # Highlight most accurate
+    best_model = metrics_df["RMSE"].idxmin()
+    st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
