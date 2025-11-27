@@ -1,11 +1,10 @@
 # ============================================
-# Streamlit App: Delivery Time Prediction with Visualization
+# Streamlit App: Delivery Time Prediction (No Matplotlib)
 # ============================================
 
 import streamlit as st
 import pandas as pd
 import joblib
-import matplotlib.pyplot as plt
 
 # ============================================
 # 1. Load Preprocessing and Models
@@ -73,32 +72,22 @@ input_data = {
 if st.button("Predict Delivery Time"):
     predictions = predict_delivery_time(input_data)
     
-    # Display predictions
     st.subheader("Predicted Delivery Times (minutes):")
     st.write(predictions)
     
     # ============================================
-    # 5. Visualization
+    # 5. Visualization with Streamlit's Bar Chart
     # ============================================
     st.subheader("Prediction Comparison Chart")
     
-    # Convert predictions to DataFrame for plotting
+    # Convert predictions to DataFrame
     df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"])
+    df_pred = df_pred.set_index("Model")
+    
+    # Streamlit bar chart
+    st.bar_chart(df_pred)
     
     # Highlight fastest model
+    fastest_model = df_pred["Predicted Time"].idxmin()
     fastest_time = df_pred["Predicted Time"].min()
-    
-    colors = ['green' if t==fastest_time else 'blue' for t in df_pred["Predicted Time"]]
-    
-    # Plot bar chart
-    fig, ax = plt.subplots()
-    df_pred.plot(kind='bar', x='Model', y='Predicted Time', ax=ax, color=colors, legend=False)
-    ax.set_ylabel("Predicted Delivery Time (min)")
-    ax.set_title("Delivery Time Prediction by Model")
-    ax.set_xticklabels(df_pred["Model"], rotation=0)
-    
-    st.pyplot(fig)
-    
-    # Show which model predicts fastest
-    fastest_model = df_pred.loc[df_pred["Predicted Time"]==fastest_time, "Model"].values[0]
     st.success(f"✅ Fastest Predicted Delivery: {fastest_model} ({fastest_time} min)")
