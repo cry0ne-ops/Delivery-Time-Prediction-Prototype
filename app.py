@@ -191,6 +191,21 @@ st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
 st.title("🛵 Delivery Time Prediction with Map")
 st.markdown("Generate random delivery details or enter your own to predict delivery times and see the delivery map.")
 
+# ---- Initialize session_state keys ----
+for key, default_value in {
+    "multiple_deliveries": 1,
+    "order_day_of_week": 3,
+    "order_month": 11,
+    "order_hour": 18,
+    "pickup_hour": 18,
+    "Weatherconditions": "Sunny",
+    "Road_traffic_density": "High",
+    "Type_of_vehicle": "Bike",
+    "Festival": "No"
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
+
 # ---- Random Data Button ----
 if st.button("🎲 Generate Random Delivery Details"):
     random_data = generate_random_delivery_data()
@@ -201,15 +216,15 @@ if st.button("🎲 Generate Random Delivery Details"):
 # ---- Input Fields ----
 col1, col2 = st.columns(2)
 with col1:
-    delivery_person_age = st.number_input("Delivery Person Age", 18, 60, value=25, key="Delivery_person_Age")
-    delivery_person_rating = st.number_input("Delivery Person Rating", 0.0, 5.0, value=4.0, step=0.1, key="Delivery_person_Ratings")
-    pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120, value=5, key="pickup_delay_min")
-    order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
+    delivery_person_age = st.number_input("Delivery Person Age", 18, 60, value=st.session_state["Delivery_person_Age"], key="Delivery_person_Age")
+    delivery_person_rating = st.number_input("Delivery Person Rating", 0.0, 5.0, value=st.session_state["Delivery_person_Ratings"], step=0.1, key="Delivery_person_Ratings")
+    pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120, value=st.session_state["pickup_delay_min"], key="pickup_delay_min")
+    order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], index=["Meat","Vegetables","Meat or Vegetables"].index(st.session_state["Type_of_order"]), key="Type_of_order")
 with col2:
-    restaurant_lat = st.number_input("Restaurant Latitude", 12.90, 13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
-    restaurant_long = st.number_input("Restaurant Longitude", 77.55, 77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
-    delivery_lat = st.number_input("Delivery Latitude", 12.90, 13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
-    delivery_long = st.number_input("Delivery Longitude", 77.55, 77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
+    restaurant_lat = st.number_input("Restaurant Latitude", 12.90, 13.00, value=st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
+    restaurant_long = st.number_input("Restaurant Longitude", 77.55, 77.65, value=st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
+    delivery_lat = st.number_input("Delivery Latitude", 12.90, 13.00, value=st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
+    delivery_long = st.number_input("Delivery Longitude", 77.55, 77.65, value=st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
