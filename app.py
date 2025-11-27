@@ -1,27 +1,56 @@
 # ============================================
-# Streamlit App: Delivery Time Prediction (Improved UI)
+# Streamlit App: Delivery Time Prediction with Model Accuracy
 # ============================================
 
 import streamlit as st
 import pandas as pd
 import joblib
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import numpy as np
 
 # ============================================
-# 1. Load Models
+# 1. Load Dataset & Models
 # ============================================
 
+# Load dataset (needed for evaluation)
+df = pd.read_csv("update dataset (1).csv")  # replace path if needed
+
+# Load preprocessing and models
 preprocessor = joblib.load("preprocessing_pipeline.pkl")
 lr_model = joblib.load("linear_regression_model.pkl")
 dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 2. Prediction Function
+# 2. Preprocess Data (same as training)
+# ============================================
+
+TARGET = "Time_taken(min)"
+FEATURES = [
+    "Delivery_person_Age","Delivery_person_Ratings",
+    "Restaurant_latitude","Restaurant_longitude",
+    "Delivery_location_latitude","Delivery_location_longitude",
+    "multiple_deliveries","order_day_of_week","order_month",
+    "order_hour","pickup_hour","pickup_delay_min",
+    "Weatherconditions","Road_traffic_density",
+    "Type_of_order","Type_of_vehicle","Festival"
+]
+
+X = df[FEATURES]
+y = df[TARGET]
+
+# Train/test split for evaluation
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# ============================================
+# 3. Prediction Function
 # ============================================
 
 def predict_delivery_time(input_data):
     df_input = pd.DataFrame([input_data])
-    
     numeric_features = [
         "Delivery_person_Age","Delivery_person_Ratings",
         "Restaurant_latitude","Restaurant_longitude",
@@ -38,119 +67,67 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 3. UI Layout
+# 4. Streamlit UI
 # ============================================
 
-st.set_page_config(
-    page_title="Delivery Time Predictor 🚀",
-    page_icon="🛵",
-    layout="wide"
-)
+st.title("🛵 Delivery Time Prediction with Model Accuracy")
 
-st.title("🛵 Delivery Time Prediction System")
-st.markdown(
-    """
-    Enter the delivery details below to predict estimated delivery times using three models.
-    """
-)
+st.header("Enter Delivery Details:")
 
-# Group Inputs in Expanders
-with st.expander("📍 Restaurant & Delivery Location"):
-    col1, col2 = st.columns(2)
-    with col1:
-        restaurant_lat = st.number_input("Restaurant Latitude", format="%.6f")
-        restaurant_long = st.number_input("Restaurant Longitude", format="%.6f")
-    with col2:
-        delivery_lat = st.number_input("Delivery Latitude", format="%.6f")
-        delivery_long = st.number_input("Delivery Longitude", format="%.6f")
+# For simplicity, a few main inputs (expandable sections can be added)
+order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"])
+delivery_person_age = st.number_input("Delivery Person Age", 18, 60)
+delivery_person_rating = st.number_input("Delivery Person Rating", 0.0, 5.0, 0.1)
+pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120)
 
-with st.expander("🧑 Delivery Person Info"):
-    col1, col2 = st.columns(2)
-    with col1:
-        age = st.number_input("Delivery Person Age", 18, 60)
-        rating = st.number_input("Delivery Person Rating", 0.0, 5.0, 0.1)
-    with col2:
-        multiple_deliveries = st.number_input("Multiple Deliveries", 1, 10)
-
-with st.expander("⏰ Order & Pickup Info"):
-    col1, col2 = st.columns(2)
-    with col1:
-        order_day = st.number_input("Order Day of Week (0=Mon,6=Sun)", 0, 6)
-        order_month = st.number_input("Order Month", 1, 12)
-        order_hour = st.number_input("Order Hour", 0, 23)
-    with col2:
-        pickup_hour = st.number_input("Pickup Hour", 0, 23)
-        pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120)
-
-with st.expander("🌦️ Traffic & Conditions"):
-    col1, col2 = st.columns(2)
-    with col1:
-        weather = st.selectbox("Weather", ["Sunny","Cloudy","Rainy","Stormy","Fog"])
-        traffic = st.selectbox("Traffic Density", ["Low","Medium","High","Jam"])
-    with col2:
-        order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat and Vegetables"])
-        vehicle = st.selectbox("Vehicle Type", ["Bike","Car","Scooter"])
-        festival = st.selectbox("Festival", ["Yes","No"])
-
-# ============================================
-# 4. Prediction
-# ============================================
-
-if st.button("🚀 Predict Delivery Time"):
-    input_data = {
-        "Delivery_person_Age": age,
-        "Delivery_person_Ratings": rating,
-        "Restaurant_latitude": restaurant_lat,
-        "Restaurant_longitude": restaurant_long,
-        "Delivery_location_latitude": delivery_lat,
-        "Delivery_location_longitude": delivery_long,
-        "multiple_deliveries": multiple_deliveries,
-        "order_day_of_week": order_day,
-        "order_month": order_month,
-        "order_hour": order_hour,
-        "pickup_hour": pickup_hour,
-        "pickup_delay_min": pickup_delay,
-        "Weatherconditions": weather,
-        "Road_traffic_density": traffic,
-        "Type_of_order": order_type,
-        "Type_of_vehicle": vehicle,
-        "Festival": festival
-    }
-
-    predictions = predict_delivery_time(input_data)
-
-    st.markdown("### 📊 Predictions by Model")
-    
-    # Show metrics in columns
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Linear Regression", f"{predictions['Linear Regression']} min")
-    col2.metric("Decision Tree", f"{predictions['Decision Tree']} min")
-    col3.metric("Random Forest", f"{predictions['Random Forest']} min")
-    
-    # Bar chart comparison
-    df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"])
-    df_pred = df_pred.set_index("Model")
-    st.bar_chart(df_pred)
-    
-    # Highlight fastest model
-    fastest_model = df_pred["Predicted Time"].idxmin()
-    fastest_time = df_pred["Predicted Time"].min()
-    st.success(f"✅ Fastest Predicted Delivery: {fastest_model} ({fastest_time} min)")
-
-
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import numpy as np
-
-models = {
-    "Linear Regression": lr_model,
-    "Decision Tree": dt_model,
-    "Random Forest": rf_model
+# Dummy values for other numeric features (you can expand to full form)
+input_data = {
+    "Delivery_person_Age": delivery_person_age,
+    "Delivery_person_Ratings": delivery_person_rating,
+    "Restaurant_latitude": 12.9716,
+    "Restaurant_longitude": 77.5946,
+    "Delivery_location_latitude": 12.9352,
+    "Delivery_location_longitude": 77.6245,
+    "multiple_deliveries": 1,
+    "order_day_of_week": 3,
+    "order_month": 11,
+    "order_hour": 18,
+    "pickup_hour": 18,
+    "pickup_delay_min": pickup_delay,
+    "Weatherconditions": "Sunny",
+    "Road_traffic_density": "High",
+    "Type_of_order": order_type,
+    "Type_of_vehicle": "Bike",
+    "Festival": "No"
 }
 
-for name, model in models.items():
-    y_pred = model.predict(X_test)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-    mae = mean_absolute_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
-    print(f"{name}: RMSE={rmse:.2f}, MAE={mae:.2f}, R²={r2:.2f}")
-
+if st.button("🚀 Predict Delivery Time"):
+    predictions = predict_delivery_time(input_data)
+    st.subheader("Predicted Delivery Times (minutes)")
+    st.write(predictions)
+    
+    # ============================================
+    # 5. Evaluate Models on Test Set
+    # ============================================
+    st.subheader("Model Accuracy on Test Set")
+    
+    models = {
+        "Linear Regression": lr_model,
+        "Decision Tree": dt_model,
+        "Random Forest": rf_model
+    }
+    
+    metrics_list = []
+    for name, model in models.items():
+        y_pred = model.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+        metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
+    
+    metrics_df = pd.DataFrame(metrics_list).set_index("Model")
+    st.dataframe(metrics_df.style.format("{:.2f}"))
+    
+    # Highlight most accurate (lowest RMSE)
+    best_model = metrics_df["RMSE"].idxmin()
+    st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
