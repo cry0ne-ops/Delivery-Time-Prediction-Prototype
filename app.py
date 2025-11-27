@@ -160,8 +160,17 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 8. Map Visualization Functions
+# 8. ORS Route with Caching
 # ============================================
+@st.cache_data(ttl=600)
+def get_ors_route(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    try:
+        return client.directions(coords, profile='driving-car', format='geojson')
+    except:
+        return None
+
 def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
     map_center = [(restaurant_lat + delivery_lat)/2, (restaurant_long + delivery_long)/2]
     m = folium.Map(location=map_center, zoom_start=13)
@@ -170,21 +179,6 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
     folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)],
                     color="blue", weight=3, opacity=0.8).add_to(m)
     return m
-
-def visualize_route_ors(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
-    client = Client(key=ORS_API_KEY)
-    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
-    try:
-        route = client.directions(coords, profile='driving-car', format='geojson')
-        map_center = [(restaurant_lat + delivery_lat)/2, (restaurant_long + delivery_long)/2]
-        m = folium.Map(location=map_center, zoom_start=13)
-        folium.GeoJson(route, name="Route").add_to(m)
-        folium.Marker([restaurant_lat, restaurant_long], tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
-        folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
-        return m
-    except Exception as e:
-        st.warning(f"Could not fetch route from ORS: {e}")
-        return visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delivery_long)
 
 # ============================================
 # 9. Streamlit UI
@@ -218,12 +212,14 @@ with col2:
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
     input_data = {key: st.session_state[key] for key in default_values.keys()}
-    predictions = predict_delivery_time(input_data)
     
+    # Predictions
+    predictions = predict_delivery_time(input_data)
     st.subheader("📊 Predicted Delivery Times (minutes)")
     st.write(predictions)
     st.bar_chart(pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"]).set_index("Model"))
     
+    # Model Accuracy
     st.subheader("📈 Model Accuracy on Test Set")
     models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
     metrics_list = []
@@ -238,11 +234,28 @@ if st.button("🚀 Predict Delivery Time"):
     best_model = metrics_df["RMSE"].idxmin()
     st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
     
+    # Map Visualization
     st.subheader("🗺️ Delivery Route Visualization")
-    route_map = visualize_route_ors(
+    route_data = get_ors_route(
         st.session_state["Restaurant_latitude"],
         st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"],
         st.session_state["Delivery_location_longitude"]
     )
-    st_folium(route_map, width=700, height=500)
+    if route_data:
+        map_center = [(st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"])/2,
+                      (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"])/2]
+        m = folium.Map(location=map_center, zoom_start=13)
+        folium.GeoJson(route_data, name="Route").add_to(m)
+        folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+                      tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+                      tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
+    else:
+        m = visualize_route_simple(
+            st.session_state["Restaurant_latitude"],
+            st.session_state["Restaurant_longitude"],
+            st.session_state["Delivery_location_latitude"],
+            st.session_state["Delivery_location_longitude"]
+        )
+    st_folium(m, width=700, height=500)
