@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit App: Robust Delivery Time Prediction with Safe Random Data
+# Streamlit App: Robust Delivery Time Prediction with ORS Map
 # ============================================
 
 import streamlit as st
@@ -9,18 +9,24 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import random
+import folium
+from openrouteservice import Client
+from streamlit_folium import st_folium
+
+# ============================================
+# ORS API Key
+# ============================================
+ORS_API_KEY = "your_ors_api_key_here"  # <-- Replace with your ORS API key
 
 # ============================================
 # 1. Load Dataset
 # ============================================
-
 df = pd.read_csv("update dataset (1).csv")  # Update path if needed
 df.columns = df.columns.str.strip().str.replace(" ", "_")
 
 # ============================================
 # 2. Feature Engineering
 # ============================================
-
 if "Order_Date" in df.columns:
     df["Order_Date"] = pd.to_datetime(df["Order_Date"].astype(str), errors='coerce')
     df["order_day_of_week"] = df["Order_Date"].dt.dayofweek
@@ -76,7 +82,6 @@ X_train, X_test, y_train, y_test = train_test_split(
 # ============================================
 # 3. Load Models
 # ============================================
-
 preprocessor = joblib.load("preprocessing_pipeline.pkl")
 lr_model = joblib.load("linear_regression_model.pkl")
 dt_model = joblib.load("decision_tree_model.pkl")
@@ -85,7 +90,6 @@ rf_model = joblib.load("random_forest_model.pkl")
 # ============================================
 # 4. Random Data Generator (Safe Ranges)
 # ============================================
-
 def generate_random_delivery_data():
     return {
         "Delivery_person_Age": random.randint(18, 60),
@@ -110,7 +114,6 @@ def generate_random_delivery_data():
 # ============================================
 # 5. Prediction Function
 # ============================================
-
 def predict_delivery_time(input_data):
     df_input = pd.DataFrame([input_data])
     numeric_features = [
@@ -129,17 +132,34 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 6. Streamlit UI
+# 6. Route Visualization Function
 # ============================================
+def visualize_route(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    
+    route = client.directions(coords, profile='driving-car', format='geojson')
+    
+    map_center = [(restaurant_lat + delivery_lat)/2, (restaurant_long + delivery_long)/2]
+    m = folium.Map(location=map_center, zoom_start=13)
+    
+    folium.GeoJson(route, name="Route").add_to(m)
+    folium.Marker([restaurant_lat, restaurant_long], tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+    folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
+    
+    return m
 
+# ============================================
+# 7. Streamlit UI
+# ============================================
 st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
-st.title("🛵 Robust Delivery Time Prediction")
-st.markdown("Generate random delivery details or enter your own to predict delivery times.")
+st.title("🛵 Robust Delivery Time Prediction with Map")
+st.markdown("Generate random delivery details or enter your own to predict delivery times and visualize the delivery route.")
 
 # ---- Random Data Button ----
 if st.button("🎲 Generate Random Delivery Details"):
     random_data = generate_random_delivery_data()
-    # Clip values to ensure they are within allowed min/max
+    # Clip values
     random_data["Delivery_person_Age"] = max(18, min(60, random_data["Delivery_person_Age"]))
     random_data["Delivery_person_Ratings"] = max(0.0, min(5.0, random_data["Delivery_person_Ratings"]))
     random_data["Restaurant_latitude"] = max(12.90, min(13.00, random_data["Restaurant_latitude"]))
@@ -201,3 +221,13 @@ if st.button("🚀 Predict Delivery Time"):
     
     best_model = metrics_df["RMSE"].idxmin()
     st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
+    
+    # ---- Map Visualization ----
+    st.subheader("🗺️ Delivery Route Visualization")
+    route_map = visualize_route(
+        restaurant_lat=st.session_state["Restaurant_latitude"],
+        restaurant_long=st.session_state["Restaurant_longitude"],
+        delivery_lat=st.session_state["Delivery_location_latitude"],
+        delivery_long=st.session_state["Delivery_location_longitude"]
+    )
+    st_folium(route_map, width=700, height=500)
