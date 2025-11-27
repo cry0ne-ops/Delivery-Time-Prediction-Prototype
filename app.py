@@ -88,7 +88,7 @@ with st.expander("🌦️ Traffic & Conditions"):
         weather = st.selectbox("Weather", ["Sunny","Cloudy","Rainy","Stormy","Fog"])
         traffic = st.selectbox("Traffic Density", ["Low","Medium","High","Jam"])
     with col2:
-        order_type = st.selectbox("Type of Order", ["Snack","Meal","Drinks","Other"])
+        order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat and Vegetables"])
         vehicle = st.selectbox("Vehicle Type", ["Bike","Car","Scooter"])
         festival = st.selectbox("Festival", ["Yes","No"])
 
