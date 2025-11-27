@@ -56,7 +56,7 @@ def generate_random_delivery_data():
         "pickup_delay_min": random.randint(0, 30),
         "Weatherconditions": random.choice(["Sunny","Cloudy","Rainy","Stormy","Fog"]),
         "Road_traffic_density": random.choice(["Low","Medium","High","Jam"]),
-        "Type_of_order": random.choice(["Snack","Meal","Drinks","Other"]),
+        "Type_of_order": random.choice(["Vegetables","Meat","Meat and Vegetables"]),
         "Type_of_vehicle": random.choice(["Bike","Car","Scooter"]),
         "Festival": random.choice(["Yes","No"])
     }
