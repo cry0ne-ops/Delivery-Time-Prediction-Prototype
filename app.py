@@ -1,10 +1,11 @@
 # ============================================
-# Streamlit App: Delivery Time Prediction
+# Streamlit App: Delivery Time Prediction with Visualization
 # ============================================
 
 import streamlit as st
 import pandas as pd
 import joblib
+import matplotlib.pyplot as plt
 
 # ============================================
 # 1. Load Preprocessing and Models
@@ -20,10 +21,6 @@ rf_model = joblib.load("random_forest_model.pkl")
 # ============================================
 
 def predict_delivery_time(input_data):
-    """
-    input_data: dict matching FEATURES
-    returns predictions from all 3 models
-    """
     df_input = pd.DataFrame([input_data])
     
     numeric_features = [
@@ -75,5 +72,33 @@ input_data = {
 
 if st.button("Predict Delivery Time"):
     predictions = predict_delivery_time(input_data)
+    
+    # Display predictions
     st.subheader("Predicted Delivery Times (minutes):")
     st.write(predictions)
+    
+    # ============================================
+    # 5. Visualization
+    # ============================================
+    st.subheader("Prediction Comparison Chart")
+    
+    # Convert predictions to DataFrame for plotting
+    df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"])
+    
+    # Highlight fastest model
+    fastest_time = df_pred["Predicted Time"].min()
+    
+    colors = ['green' if t==fastest_time else 'blue' for t in df_pred["Predicted Time"]]
+    
+    # Plot bar chart
+    fig, ax = plt.subplots()
+    df_pred.plot(kind='bar', x='Model', y='Predicted Time', ax=ax, color=colors, legend=False)
+    ax.set_ylabel("Predicted Delivery Time (min)")
+    ax.set_title("Delivery Time Prediction by Model")
+    ax.set_xticklabels(df_pred["Model"], rotation=0)
+    
+    st.pyplot(fig)
+    
+    # Show which model predicts fastest
+    fastest_model = df_pred.loc[df_pred["Predicted Time"]==fastest_time, "Model"].values[0]
+    st.success(f"✅ Fastest Predicted Delivery: {fastest_model} ({fastest_time} min)")
