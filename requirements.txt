@@ -5,4 +5,4 @@ geopy
 folium
 streamlit-folium
 requests
-scikit-learn
+scikit-learn == 1.6.1
