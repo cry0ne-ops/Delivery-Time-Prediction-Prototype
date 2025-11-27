@@ -1,103 +1,135 @@
-# app.py
 import streamlit as st
 import pandas as pd
-import joblib  # use joblib instead of cloudpickle
+import joblib
+from geopy.distance import geodesic
 import folium
 from streamlit_folium import st_folium
+import requests
 
-# =============================================
-# 1. LOAD MODELS
-# =============================================
-def load_model(filename):
-    return joblib.load(filename)  # simple joblib load
+# ------------------------------
+# LOAD MODELS & SCALER
+# ------------------------------
+def load_model(model_name):
+    try:
+        return joblib.load(model_name)
+    except Exception as e:
+        st.error(f"Could not load model {model_name}: {e}")
+        return None
 
-# Load the trained pipelines
-pipeline_lr = load_model("linear_regression_model.pkl")
-pipeline_dt = load_model("decision_tree_model.pkl")
-pipeline_rf = load_model("random_forest_model.pkl")
+scaler = joblib.load("scaler.pkl")  # global scaler for ALL models
 
-models = {
-    "Linear Regression": pipeline_lr,
-    "Decision Tree": pipeline_dt,
-    "Random Forest": pipeline_rf
-}
+# ------------------------------
+# STREAMLIT UI SETUP
+# ------------------------------
+st.set_page_config(
+    page_title="Delivery Time Prediction",
+    layout="wide",
+    page_icon="⏱️"
+)
 
-# =============================================
-# 2. APP LAYOUT
-# =============================================
-st.set_page_config(layout="wide")
-st.title("Delivery Time Prediction App")
-st.write("Predict delivery time and visualize locations on the map.")
+st.markdown("<h1 style='text-align:center;'>📦 Delivery Time Prediction App</h1>", unsafe_allow_html=True)
+st.write("Use the sidebar to configure prediction settings.")
 
-# Select model
-selected_model_name = st.selectbox("Select Model", list(models.keys()))
-model = models[selected_model_name]
+# ------------------------------
+# SIDEBAR CONFIGURATION PANEL
+# ------------------------------
+st.sidebar.header("⚙️ Model & Input Settings")
 
-# =============================================
-# 3. SIDEBAR INPUTS
-# =============================================
-st.sidebar.header("Enter Order Details:")
+model_choice = st.sidebar.selectbox(
+    "Select Regression Model",
+    [
+        "delivery_time_model.pkl",
+        "linear_regression_model.pkl",
+        "decision_tree_model.pkl"
+    ]
+)
 
-def user_input_features():
-    data = {
-        "Delivery_person_Age": st.sidebar.number_input("Delivery Person Age", 18, 70, 25),
-        "Delivery_person_Ratings": st.sidebar.number_input("Delivery Person Ratings", 0.0, 5.0, 4.5),
-        "Restaurant_latitude": st.sidebar.number_input("Restaurant Latitude", -90.0, 90.0, 14.6),
-        "Restaurant_longitude": st.sidebar.number_input("Restaurant Longitude", -180.0, 180.0, 120.9),
-        "Delivery_location_latitude": st.sidebar.number_input("Delivery Latitude", -90.0, 90.0, 14.65),
-        "Delivery_location_longitude": st.sidebar.number_input("Delivery Longitude", -180.0, 180.0, 120.95),
-        "Weatherconditions": st.sidebar.selectbox("Weather Conditions", ["Sunny", "Cloudy", "Rainy", "Stormy", "Fog"]),
-        "Road_traffic_density": st.sidebar.selectbox("Traffic Density", ["Low", "Medium", "High", "Jam"]),
-        "Type_of_order": st.sidebar.selectbox("Type of Order", ["Meat", "Fruits", "Fruits and Vegetables"]),
-        "Type_of_vehicle": st.sidebar.selectbox("Type of Vehicle", ["Bike", "Scooter", "Car"]),
-        "multiple_deliveries": st.sidebar.number_input("Multiple Deliveries", 0, 5, 1),
-        "Festival": st.sidebar.selectbox("Festival", ["Yes", "No"]),
-        "order_day_of_week": st.sidebar.number_input("Order Day of Week (0=Monday)", 0, 6, 0),
-        "order_month": st.sidebar.number_input("Order Month", 1, 12, 1),
-        "order_hour": st.sidebar.number_input("Order Hour", 0, 23, 12),
-        "pickup_hour": st.sidebar.number_input("Pickup Hour", 0, 23, 12),
-        "pickup_delay_min": st.sidebar.number_input("Pickup Delay (minutes)", 0, 180, 5)
-    }
-    return pd.DataFrame([data])
+# Example inputs – replace with real UI components
+delivery_person_age = st.sidebar.number_input("Delivery Person Age", 18, 70, 30)
+delivery_person_ratings = st.sidebar.number_input("Delivery Rating", 1.0, 5.0, 4.5)
+restaurant_lat = st.sidebar.number_input("Restaurant Latitude", value=16.4023)
+restaurant_long = st.sidebar.number_input("Restaurant Longitude", value=120.5960)
+delivery_lat = st.sidebar.number_input("Delivery Latitude", value=16.4152)
+delivery_long = st.sidebar.number_input("Delivery Longitude", value=120.5900)
 
-input_df = user_input_features()
+weather = st.sidebar.selectbox("Weather", ["Sunny", "Rainy", "Cloudy", "Stormy"])
+traffic = st.sidebar.selectbox("Traffic", ["Low", "Medium", "High", "Jam"])
+type_of_order = st.sidebar.selectbox("Order Type", ["Meat", "Fruits", "Fruits and Vegetables"])
+vehicle_type = st.sidebar.selectbox("Vehicle Type", ["Bike", "Motorcycle", "Car"])
+multiple_deliveries = st.sidebar.number_input("Multiple Deliveries", 0, 5, 0)
+festival = st.sidebar.selectbox("Festival", ["Yes", "No"])
 
-# =============================================
-# 4. PREDICTION
-# =============================================
-if st.button("Predict Delivery Time"):
-    prediction = model.predict(input_df)[0]
-    st.success(f"Predicted Delivery Time: {prediction:.2f} minutes")
+# ------------------------------
+# MAP (Left Column)
+# ------------------------------
+col1, col2 = st.columns([1.2, 1])
 
-    # =============================================
-    # 5. MAP VISUALIZATION
-    # =============================================
-    m = folium.Map(location=[input_df["Restaurant_latitude"][0], input_df["Restaurant_longitude"][0]], zoom_start=12)
+with col1:
+    st.subheader("🗺️ Delivery Route Map")
+
+    map_center = [(restaurant_lat + delivery_lat) / 2,
+                  (restaurant_long + delivery_long) / 2]
+
+    route_map = folium.Map(location=map_center, zoom_start=13)
+    folium.Marker([restaurant_lat, restaurant_long],
+                  tooltip="Restaurant", icon=folium.Icon(color="green")).add_to(route_map)
+    folium.Marker([delivery_lat, delivery_long],
+                  tooltip="Delivery Location", icon=folium.Icon(color="red")).add_to(route_map)
     
-    # Restaurant marker
-    folium.Marker(
-        location=[input_df["Restaurant_latitude"][0], input_df["Restaurant_longitude"][0]],
-        popup="Restaurant",
-        icon=folium.Icon(color="green", icon="cutlery", prefix="fa")
-    ).add_to(m)
-    
-    # Delivery location marker
-    folium.Marker(
-        location=[input_df["Delivery_location_latitude"][0], input_df["Delivery_location_longitude"][0]],
-        popup="Delivery Location",
-        icon=folium.Icon(color="red", icon="truck", prefix="fa")
-    ).add_to(m)
-    
-    # Draw line between points
-    folium.PolyLine(
-        locations=[
-            [input_df["Restaurant_latitude"][0], input_df["Restaurant_longitude"][0]],
-            [input_df["Delivery_location_latitude"][0], input_df["Delivery_location_longitude"][0]]
-        ],
-        color="blue",
-        weight=3,
-        opacity=0.7
-    ).add_to(m)
-    
-    st.subheader("Route Map")
-    st_folium(m, width=700, height=500)
+    st_folium(route_map, width=500, height=400)
+
+# ------------------------------
+# PREDICTION PANEL (Right Column)
+# ------------------------------
+with col2:
+    st.subheader("⏱️ Predicted Delivery Time")
+
+    if st.button("Predict Delivery Time", use_container_width=True):
+
+        model = load_model(model_choice)
+        if model is None:
+            st.error("Model failed to load.")
+            st.stop()
+
+        # ------------------------------
+        # CREATE FEATURE ROW
+        # ------------------------------
+        df = pd.DataFrame([{
+            "Delivery_person_Age": delivery_person_age,
+            "Delivery_person_Ratings": delivery_person_ratings,
+            "Restaurant_latitude": restaurant_lat,
+            "Restaurant_longitude": restaurant_long,
+            "Delivery_location_latitude": delivery_lat,
+            "Delivery_location_longitude": delivery_long,
+            "Weatherconditions": weather,
+            "Road_traffic_density": traffic,
+            "Type_of_order": type_of_order,
+            "Type_of_vehicle": vehicle_type,
+            "multiple_deliveries": multiple_deliveries,
+            "Festival": festival
+        }])
+
+        # One-hot encoding using existing columns from scaler
+        df = pd.get_dummies(df)
+
+        # Align with training scaler features
+        missing_cols = set(scaler.feature_names_in_) - set(df.columns)
+        for col in missing_cols:
+            df[col] = 0
+
+        df = df[scaler.feature_names_in_]
+
+        # Scale inputs
+        scaled_features = scaler.transform(df)
+
+        # Predict
+        prediction = model.predict(scaled_features)[0]
+        prediction = round(float(prediction), 2)
+
+        st.success(f"Estimated Delivery Time: **{prediction} minutes**")
+
+# ------------------------------
+# FOOTER
+# ------------------------------
+st.markdown("---")
+st.write("© 2025 Delivery Time Prediction System | Powered by Streamlit")
