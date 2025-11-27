@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit App: Delivery Time Prediction + Distance
+# Streamlit App: Delivery Time Prediction + Distance + Map
 # ============================================
 
 import streamlit as st
@@ -10,6 +10,8 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import random
 from math import radians, cos, sin, asin, sqrt
+import folium
+from streamlit_folium import st_folium
 
 # ============================================
 # 1. Load Dataset
@@ -84,11 +86,10 @@ dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 4. Distance Calculation Function
+# 4. Distance Calculation
 # ============================================
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculate the great-circle distance in km between two points."""
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -144,25 +145,55 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 7. Streamlit UI
+# 7. Map Function
+# ============================================
+
+def create_delivery_map(restaurant_lat, restaurant_lon, delivery_lat, delivery_lon, predictions, distance_km):
+    mid_lat = (restaurant_lat + delivery_lat) / 2
+    mid_lon = (restaurant_lon + delivery_lon) / 2
+    m = folium.Map(location=[mid_lat, mid_lon], zoom_start=13)
+    
+    folium.Marker(
+        [restaurant_lat, restaurant_lon],
+        popup=f"Restaurant",
+        tooltip="Restaurant",
+        icon=folium.Icon(color="green", icon="cutlery", prefix="fa")
+    ).add_to(m)
+
+    folium.Marker(
+        [delivery_lat, delivery_lon],
+        popup=f"Delivery Location",
+        tooltip="Delivery",
+        icon=folium.Icon(color="red", icon="motorcycle", prefix="fa")
+    ).add_to(m)
+
+    folium.PolyLine(
+        locations=[[restaurant_lat, restaurant_lon], [delivery_lat, delivery_lon]],
+        color="blue", weight=3, opacity=0.7
+    ).add_to(m)
+
+    folium.Marker(
+        [(restaurant_lat + delivery_lat)/2, (restaurant_lon + delivery_lon)/2],
+        icon=folium.DivIcon(html=f"""<div style="font-size: 14pt; color: black">
+                                      Distance: {distance_km:.2f} km<br>
+                                      LR: {predictions['Linear Regression']} min, 
+                                      DT: {predictions['Decision Tree']} min, 
+                                      RF: {predictions['Random Forest']} min
+                                      </div>""")
+    ).add_to(m)
+    return m
+
+# ============================================
+# 8. Streamlit UI
 # ============================================
 
 st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
-st.title("🛵 Robust Delivery Time Prediction")
-st.markdown("Generate random delivery details or enter your own to predict delivery times and distance.")
+st.title("🛵 Delivery Time Prediction with Map")
+st.markdown("Generate random delivery details or enter your own to predict delivery times and see the delivery map.")
 
 # ---- Random Data Button ----
 if st.button("🎲 Generate Random Delivery Details"):
     random_data = generate_random_delivery_data()
-    # Clip values to ensure they are within allowed min/max
-    random_data["Delivery_person_Age"] = max(18, min(60, random_data["Delivery_person_Age"]))
-    random_data["Delivery_person_Ratings"] = max(0.0, min(5.0, random_data["Delivery_person_Ratings"]))
-    random_data["Restaurant_latitude"] = max(12.90, min(13.00, random_data["Restaurant_latitude"]))
-    random_data["Restaurant_longitude"] = max(77.55, min(77.65, random_data["Restaurant_longitude"]))
-    random_data["Delivery_location_latitude"] = max(12.90, min(13.00, random_data["Delivery_location_latitude"]))
-    random_data["Delivery_location_longitude"] = max(77.55, min(77.65, random_data["Delivery_location_longitude"]))
-    random_data["pickup_delay_min"] = max(0, min(120, random_data["pickup_delay_min"]))
-    
     for key, value in random_data.items():
         st.session_state[key] = value
     st.success("✅ Random delivery details generated!")
@@ -170,15 +201,15 @@ if st.button("🎲 Generate Random Delivery Details"):
 # ---- Input Fields ----
 col1, col2 = st.columns(2)
 with col1:
-    delivery_person_age = st.number_input("Delivery Person Age", min_value=18, max_value=60, value=25, key="Delivery_person_Age")
-    delivery_person_rating = st.number_input("Delivery Person Rating", min_value=0.0, max_value=5.0, value=4.0, step=0.1, key="Delivery_person_Ratings")
-    pickup_delay = st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, value=5, key="pickup_delay_min")
+    delivery_person_age = st.number_input("Delivery Person Age", 18, 60, value=25, key="Delivery_person_Age")
+    delivery_person_rating = st.number_input("Delivery Person Rating", 0.0, 5.0, value=4.0, step=0.1, key="Delivery_person_Ratings")
+    pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120, value=5, key="pickup_delay_min")
     order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
 with col2:
-    restaurant_lat = st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
-    restaurant_long = st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
-    delivery_lat = st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
-    delivery_long = st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
+    restaurant_lat = st.number_input("Restaurant Latitude", 12.90, 13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
+    restaurant_long = st.number_input("Restaurant Longitude", 77.55, 77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
+    delivery_lat = st.number_input("Delivery Latitude", 12.90, 13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
+    delivery_long = st.number_input("Delivery Longitude", 77.55, 77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
@@ -191,25 +222,24 @@ if st.button("🚀 Predict Delivery Time"):
         "Weatherconditions","Road_traffic_density","Type_of_order",
         "Type_of_vehicle","Festival"
     ]}
-    
-    # Calculate distance
+
+    # Distance calculation
     distance_km = haversine_distance(
         input_data["Restaurant_latitude"],
         input_data["Restaurant_longitude"],
         input_data["Delivery_location_latitude"],
         input_data["Delivery_location_longitude"]
     )
-    st.subheader(f"🛣️ Distance between restaurant and delivery location: {distance_km:.2f} km")
-    
+    st.subheader(f"🛣️ Distance: {distance_km:.2f} km")
+
     # Predictions
     predictions = predict_delivery_time(input_data)
     st.subheader("📊 Predicted Delivery Times (minutes)")
     st.write(predictions)
-    
     df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"]).set_index("Model")
     st.bar_chart(df_pred)
-    
-    # Model Accuracy
+
+    # Accuracy metrics
     st.subheader("📈 Model Accuracy on Test Set")
     models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
     metrics_list = []
@@ -219,9 +249,19 @@ if st.button("🚀 Predict Delivery Time"):
         mae = mean_absolute_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
         metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
-    
     metrics_df = pd.DataFrame(metrics_list).set_index("Model")
     st.dataframe(metrics_df.style.format("{:.2f}"))
-    
     best_model = metrics_df["RMSE"].idxmin()
     st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
+
+    # Map
+    st.subheader("🗺️ Delivery Map")
+    delivery_map = create_delivery_map(
+        input_data["Restaurant_latitude"],
+        input_data["Restaurant_longitude"],
+        input_data["Delivery_location_latitude"],
+        input_data["Delivery_location_longitude"],
+        predictions,
+        distance_km
+    )
+    st_data = st_folium(delivery_map, width=700, height=500)
