@@ -109,15 +109,17 @@ with col2:
             "Festival": festival
         }])
 
-        # One-hot encoding using existing columns from scaler
+        # One-hot encode categorical columns (replace with the same encoding used in training)
         df = pd.get_dummies(df)
 
-        # Align with training scaler features
-        missing_cols = set(scaler.feature_names_in_) - set(df.columns)
-        for col in missing_cols:
-            df[col] = 0
+        # Load saved feature names from training
+        feature_names = joblib.load("feature_names.pkl")  # <--- saved after training
 
-        df = df[scaler.feature_names_in_]
+        # Add missing columns and reorder
+        for col in feature_names:
+            if col not in df.columns:
+                df[col] = 0
+        df = df[feature_names]
 
         # Scale inputs
         scaled_features = scaler.transform(df)
