@@ -16,7 +16,7 @@ from streamlit_folium import st_folium
 # ============================================
 # ORS API Key
 # ============================================
-ORS_API_KEY = "your_ors_api_key_here"  # <-- Replace with your ORS API key
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="
 
 # ============================================
 # 1. Load Dataset
