@@ -16,7 +16,7 @@ from openrouteservice import Client
 # ============================================
 # 1. ORS API Key
 # ============================================
-ORS_API_KEY = "your_valid_ors_api_key_here"  # Replace with your ORS API Key
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="  # Replace with your ORS API Key
 
 # ============================================
 # 2. Load Dataset
