@@ -28,7 +28,7 @@ df.columns = df.columns.str.strip().str.replace(" ", "_")
 # 2. Feature Engineering
 # ============================================
 if "Order_Date" in df.columns:
-    df["Order_Date"] = pd.to_datetime(df["Order_Date"].astype(str), dayfirst=True, errors='coerce')
+    df["Order_Date"] = pd.to_datetime(df["Order_Date"].astype(str), format="%d/%m/%Y", errors='coerce')
     df["order_day_of_week"] = df["Order_Date"].dt.dayofweek
     df["order_month"] = df["Order_Date"].dt.month
 
