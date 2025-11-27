@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit App: Robust Delivery Time Prediction with Safe Random Data
+# Streamlit App: Delivery Time Prediction + Distance
 # ============================================
 
 import streamlit as st
@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import random
+from math import radians, cos, sin, asin, sqrt
 
 # ============================================
 # 1. Load Dataset
@@ -83,7 +84,21 @@ dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 4. Random Data Generator (Safe Ranges)
+# 4. Distance Calculation Function
+# ============================================
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate the great-circle distance in km between two points."""
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    r = 6371
+    return c * r
+
+# ============================================
+# 5. Random Data Generator
 # ============================================
 
 def generate_random_delivery_data():
@@ -108,7 +123,7 @@ def generate_random_delivery_data():
     }
 
 # ============================================
-# 5. Prediction Function
+# 6. Prediction Function
 # ============================================
 
 def predict_delivery_time(input_data):
@@ -129,12 +144,12 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 6. Streamlit UI
+# 7. Streamlit UI
 # ============================================
 
 st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
 st.title("🛵 Robust Delivery Time Prediction")
-st.markdown("Generate random delivery details or enter your own to predict delivery times.")
+st.markdown("Generate random delivery details or enter your own to predict delivery times and distance.")
 
 # ---- Random Data Button ----
 if st.button("🎲 Generate Random Delivery Details"):
@@ -160,10 +175,10 @@ with col1:
     pickup_delay = st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, value=5, key="pickup_delay_min")
     order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
 with col2:
-    restaurant_lat = st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
-    restaurant_long = st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
-    delivery_lat = st.number_input("Supplier Latitude", min_value=12.90, max_value=13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
-    delivery_long = st.number_input("Supplier Longitude", min_value=77.55, max_value=77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
+    restaurant_lat = st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
+    restaurant_long = st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
+    delivery_lat = st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
+    delivery_long = st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
@@ -176,6 +191,15 @@ if st.button("🚀 Predict Delivery Time"):
         "Weatherconditions","Road_traffic_density","Type_of_order",
         "Type_of_vehicle","Festival"
     ]}
+    
+    # Calculate distance
+    distance_km = haversine_distance(
+        input_data["Restaurant_latitude"],
+        input_data["Restaurant_longitude"],
+        input_data["Delivery_location_latitude"],
+        input_data["Delivery_location_longitude"]
+    )
+    st.subheader(f"🛣️ Distance between restaurant and delivery location: {distance_km:.2f} km")
     
     # Predictions
     predictions = predict_delivery_time(input_data)
