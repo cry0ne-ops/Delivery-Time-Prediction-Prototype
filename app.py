@@ -20,14 +20,17 @@ from streamlit_folium import st_folium
 df = pd.read_csv("update dataset (1).csv")  # Update path if needed
 df.columns = df.columns.str.strip().str.replace(" ", "_")
 
-# ============================================
-# 2. Feature Engineering
-# ============================================
-
+# Parse dates with day first to avoid warnings
 if "Order_Date" in df.columns:
-    df["Order_Date"] = pd.to_datetime(df["Order_Date"].astype(str), errors='coerce')
+    df["Order_Date"] = pd.to_datetime(
+        df["Order_Date"].astype(str), dayfirst=True, errors='coerce'
+    )
     df["order_day_of_week"] = df["Order_Date"].dt.dayofweek
     df["order_month"] = df["Order_Date"].dt.month
+
+# ============================================
+# 2. Time Features
+# ============================================
 
 def clean_time_to_hhmm_int(time_str):
     time_str = str(time_str).strip()
@@ -55,8 +58,13 @@ if "Time_Orderd" in df.columns and "Time_Order_picked" in df.columns:
     df["pickup_hour"] = df["Time_Order_picked"] // 100
     df["pickup_delay_min"] = ((df["pickup_hour"] - df["order_hour"])*60).clip(lower=0)
 
+# Clean target
 if "Time_taken(min)" in df.columns:
     df["Time_taken(min)"] = df["Time_taken(min)"].astype(str).str.replace('(min) ', '', regex=False).astype(float)
+
+# ============================================
+# 3. Features and Target
+# ============================================
 
 TARGET = "Time_taken(min)"
 FEATURES = [
@@ -77,7 +85,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # ============================================
-# 3. Load Models
+# 4. Load Models
 # ============================================
 
 preprocessor = joblib.load("preprocessing_pipeline.pkl")
@@ -86,7 +94,7 @@ dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 4. Distance Calculation
+# 5. Distance Calculation
 # ============================================
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -99,7 +107,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return c * r
 
 # ============================================
-# 5. Random Data Generator
+# 6. Random Data Generator
 # ============================================
 
 def generate_random_delivery_data():
@@ -124,7 +132,7 @@ def generate_random_delivery_data():
     }
 
 # ============================================
-# 6. Prediction Function
+# 7. Prediction Function
 # ============================================
 
 def predict_delivery_time(input_data):
@@ -145,7 +153,7 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 7. Map Function
+# 8. Map Function
 # ============================================
 
 def create_delivery_map(restaurant_lat, restaurant_lon, delivery_lat, delivery_lon, predictions, distance_km):
@@ -184,14 +192,14 @@ def create_delivery_map(restaurant_lat, restaurant_lon, delivery_lat, delivery_l
     return m
 
 # ============================================
-# 8. Streamlit UI
+# 9. Streamlit UI
 # ============================================
 
 st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
 st.title("🛵 Delivery Time Prediction with Map")
 st.markdown("Generate random delivery details or enter your own to predict delivery times and see the delivery map.")
 
-# ---- Initialize session_state keys ----
+# Initialize session_state keys
 for key, default_value in {
     "multiple_deliveries": 1,
     "order_day_of_week": 3,
@@ -206,14 +214,14 @@ for key, default_value in {
     if key not in st.session_state:
         st.session_state[key] = default_value
 
-# ---- Random Data Button ----
+# Random Data Button
 if st.button("🎲 Generate Random Delivery Details"):
     random_data = generate_random_delivery_data()
     for key, value in random_data.items():
         st.session_state[key] = value
     st.success("✅ Random delivery details generated!")
 
-# ---- Input Fields ----
+# Input Fields
 col1, col2 = st.columns(2)
 with col1:
     delivery_person_age = st.number_input("Delivery Person Age", 18, 60, value=st.session_state["Delivery_person_Age"], key="Delivery_person_Age")
@@ -226,7 +234,7 @@ with col2:
     delivery_lat = st.number_input("Delivery Latitude", 12.90, 13.00, value=st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
     delivery_long = st.number_input("Delivery Longitude", 77.55, 77.65, value=st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
 
-# ---- Predict Button ----
+# Predict Button
 if st.button("🚀 Predict Delivery Time"):
     input_data = {key: st.session_state[key] for key in [
         "Delivery_person_Age","Delivery_person_Ratings",
@@ -238,7 +246,6 @@ if st.button("🚀 Predict Delivery Time"):
         "Type_of_vehicle","Festival"
     ]}
 
-    # Distance calculation
     distance_km = haversine_distance(
         input_data["Restaurant_latitude"],
         input_data["Restaurant_longitude"],
@@ -247,14 +254,12 @@ if st.button("🚀 Predict Delivery Time"):
     )
     st.subheader(f"🛣️ Distance: {distance_km:.2f} km")
 
-    # Predictions
     predictions = predict_delivery_time(input_data)
     st.subheader("📊 Predicted Delivery Times (minutes)")
     st.write(predictions)
     df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"]).set_index("Model")
     st.bar_chart(df_pred)
 
-    # Accuracy metrics
     st.subheader("📈 Model Accuracy on Test Set")
     models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
     metrics_list = []
@@ -269,7 +274,6 @@ if st.button("🚀 Predict Delivery Time"):
     best_model = metrics_df["RMSE"].idxmin()
     st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
 
-    # Map
     st.subheader("🗺️ Delivery Map")
     delivery_map = create_delivery_map(
         input_data["Restaurant_latitude"],
@@ -279,4 +283,4 @@ if st.button("🚀 Predict Delivery Time"):
         predictions,
         distance_km
     )
-    st_data = st_folium(delivery_map, width=700, height=500)
+    st_folium(delivery_map, width=700, height=500)
