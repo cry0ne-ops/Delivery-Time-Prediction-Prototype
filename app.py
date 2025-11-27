@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit App: Robust Delivery Time Prediction with ORS Map and Persistent State
+# Streamlit App: Robust Delivery Time Prediction with ORS Map & Persistent State
 # ============================================
 
 import streamlit as st
@@ -11,11 +11,12 @@ import numpy as np
 import random
 import folium
 from streamlit_folium import st_folium
+from openrouteservice import Client
 
 # ============================================
-# 1. ORS API Key (Optional for now, can add later)
+# 1. ORS API Key
 # ============================================
-ORS_API_KEY = "your_ors_api_key_here"  # Replace if using openrouteservice
+ORS_API_KEY = "your_valid_ors_api_key_here"  # Replace with your ORS API Key
 
 # ============================================
 # 2. Load Dataset
@@ -89,7 +90,7 @@ dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 5. Initialize Session State
+# 5. Session State Initialization
 # ============================================
 default_values = {
     "Delivery_person_Age": 25,
@@ -151,7 +152,6 @@ def predict_delivery_time(input_data):
         "multiple_deliveries","order_day_of_week","order_month",
         "order_hour","pickup_hour","pickup_delay_min"
     ]
-    numeric_features = [f for f in numeric_features if f in df_input.columns]
     df_input[numeric_features] = df_input[numeric_features].astype(float)
     return {
         "Linear Regression": round(lr_model.predict(df_input)[0],2),
@@ -160,7 +160,7 @@ def predict_delivery_time(input_data):
     }
 
 # ============================================
-# 8. Simple Route Visualization (without ORS)
+# 8. Map Visualization Functions
 # ============================================
 def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
     map_center = [(restaurant_lat + delivery_lat)/2, (restaurant_long + delivery_long)/2]
@@ -171,11 +171,26 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
                     color="blue", weight=3, opacity=0.8).add_to(m)
     return m
 
+def visualize_route_ors(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        map_center = [(restaurant_lat + delivery_lat)/2, (restaurant_long + delivery_long)/2]
+        m = folium.Map(location=map_center, zoom_start=13)
+        folium.GeoJson(route, name="Route").add_to(m)
+        folium.Marker([restaurant_lat, restaurant_long], tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
+        return m
+    except Exception as e:
+        st.warning(f"Could not fetch route from ORS: {e}")
+        return visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delivery_long)
+
 # ============================================
 # 9. Streamlit UI
 # ============================================
 st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
-st.title("🛵 Robust Delivery Time Prediction with Map")
+st.title("🛵 Robust Delivery Time Prediction with ORS Map")
 st.markdown("Generate random delivery details or enter your own to predict delivery times and visualize the delivery route.")
 
 # ---- Random Data Button ----
@@ -207,9 +222,7 @@ if st.button("🚀 Predict Delivery Time"):
     
     st.subheader("📊 Predicted Delivery Times (minutes)")
     st.write(predictions)
-    
-    df_pred = pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"]).set_index("Model")
-    st.bar_chart(df_pred)
+    st.bar_chart(pd.DataFrame(list(predictions.items()), columns=["Model","Predicted Time"]).set_index("Model"))
     
     st.subheader("📈 Model Accuracy on Test Set")
     models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
@@ -226,7 +239,7 @@ if st.button("🚀 Predict Delivery Time"):
     st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
     
     st.subheader("🗺️ Delivery Route Visualization")
-    route_map = visualize_route_simple(
+    route_map = visualize_route_ors(
         st.session_state["Restaurant_latitude"],
         st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"],
