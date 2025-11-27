@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit App: Robust Delivery Time Prediction with Random Data
+# Streamlit App: Robust Delivery Time Prediction with Safe Random Data
 # ============================================
 
 import streamlit as st
@@ -83,7 +83,7 @@ dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 4. Random Data Generator
+# 4. Random Data Generator (Safe Ranges)
 # ============================================
 
 def generate_random_delivery_data():
@@ -139,6 +139,15 @@ st.markdown("Generate random delivery details or enter your own to predict deliv
 # ---- Random Data Button ----
 if st.button("🎲 Generate Random Delivery Details"):
     random_data = generate_random_delivery_data()
+    # Clip values to ensure they are within allowed min/max
+    random_data["Delivery_person_Age"] = max(18, min(60, random_data["Delivery_person_Age"]))
+    random_data["Delivery_person_Ratings"] = max(0.0, min(5.0, random_data["Delivery_person_Ratings"]))
+    random_data["Restaurant_latitude"] = max(12.90, min(13.00, random_data["Restaurant_latitude"]))
+    random_data["Restaurant_longitude"] = max(77.55, min(77.65, random_data["Restaurant_longitude"]))
+    random_data["Delivery_location_latitude"] = max(12.90, min(13.00, random_data["Delivery_location_latitude"]))
+    random_data["Delivery_location_longitude"] = max(77.55, min(77.65, random_data["Delivery_location_longitude"]))
+    random_data["pickup_delay_min"] = max(0, min(120, random_data["pickup_delay_min"]))
+    
     for key, value in random_data.items():
         st.session_state[key] = value
     st.success("✅ Random delivery details generated!")
@@ -146,15 +155,15 @@ if st.button("🎲 Generate Random Delivery Details"):
 # ---- Input Fields ----
 col1, col2 = st.columns(2)
 with col1:
-    delivery_person_age = st.number_input("Delivery Person Age", 18, 60, key="Delivery_person_Age")
-    delivery_person_rating = st.number_input("Delivery Person Rating", 0.0, 5.0, 0.1, key="Delivery_person_Ratings")
-    pickup_delay = st.number_input("Pickup Delay (minutes)", 0, 120, key="pickup_delay_min")
+    delivery_person_age = st.number_input("Delivery Person Age", min_value=18, max_value=60, value=25, key="Delivery_person_Age")
+    delivery_person_rating = st.number_input("Delivery Person Rating", min_value=0.0, max_value=5.0, value=4.0, step=0.1, key="Delivery_person_Ratings")
+    pickup_delay = st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, value=5, key="pickup_delay_min")
     order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
 with col2:
-    restaurant_lat = st.number_input("Restaurant Latitude", 12.9716, key="Restaurant_latitude")
-    restaurant_long = st.number_input("Restaurant Longitude", 77.5946, key="Restaurant_longitude")
-    delivery_lat = st.number_input("Delivery Latitude", 12.9352, key="Delivery_location_latitude")
-    delivery_long = st.number_input("Delivery Longitude", 77.6245, key="Delivery_location_longitude")
+    restaurant_lat = st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
+    restaurant_long = st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
+    delivery_lat = st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
+    delivery_long = st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
