@@ -160,10 +160,10 @@ with col1:
     pickup_delay = st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, value=5, key="pickup_delay_min")
     order_type = st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
 with col2:
-    restaurant_lat = st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
-    restaurant_long = st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
-    delivery_lat = st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
-    delivery_long = st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
+    restaurant_lat = st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, value=12.9716, format="%.6f", key="Restaurant_latitude")
+    restaurant_long = st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, value=77.5946, format="%.6f", key="Restaurant_longitude")
+    delivery_lat = st.number_input("Supplier Latitude", min_value=12.90, max_value=13.00, value=12.9352, format="%.6f", key="Delivery_location_latitude")
+    delivery_long = st.number_input("Supplier Longitude", min_value=77.55, max_value=77.65, value=77.6245, format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
