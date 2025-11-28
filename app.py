@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit App: Persistent Delivery Time Prediction with ORS Map
+# Streamlit Delivery Time Prediction Dashboard
 # ============================================
 
 import streamlit as st
@@ -16,7 +16,7 @@ from openrouteservice import Client
 # ============================================
 # 1. ORS API Key
 # ============================================
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="
+ORS_API_KEY = "YOUR_ORS_API_KEY_HERE"
 
 # ============================================
 # 2. Load Dataset
@@ -89,7 +89,7 @@ dt_model = joblib.load("decision_tree_model.pkl")
 rf_model = joblib.load("random_forest_model.pkl")
 
 # ============================================
-# 5. Session State Initialization
+# 5. Session State Defaults
 # ============================================
 default_values = {
     "Delivery_person_Age": 25,
@@ -179,91 +179,82 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
     return m
 
 # ============================================
-# 9. Streamlit UI
+# 9. Dashboard Layout
 # ============================================
-st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
-st.title("🛵 Persistent Delivery Time Prediction with ORS Map")
-st.markdown("Generate random delivery details or enter your own to predict delivery times and visualize the delivery route.")
+st.set_page_config(page_title="Delivery Time Dashboard 🚀", layout="wide")
+st.title("🛵 Delivery Time Prediction Dashboard")
 
-# ---- Random Data Button ----
-if st.button("🎲 Generate Random Delivery Details"):
-    random_data = generate_random_delivery_data()
-    for key, value in random_data.items():
-        st.session_state[key] = value
-    st.success("✅ Random delivery details generated!")
+# ---- Three columns layout ----
+col1, col2, col3 = st.columns([1,1,1.5])
 
-# ---- Input Fields ----
-col1, col2 = st.columns(2)
+# ---- Column 1: Inputs ----
 with col1:
+    st.subheader("🔧 Delivery Inputs")
+    if st.button("🎲 Generate Random Delivery Details"):
+        random_data = generate_random_delivery_data()
+        for key, value in random_data.items():
+            st.session_state[key] = value
+        st.success("✅ Random delivery details generated!")
+
     st.number_input("Delivery Person Age", min_value=18, max_value=60, key="Delivery_person_Age")
     st.number_input("Delivery Person Rating", min_value=0.0, max_value=5.0, step=0.1, key="Delivery_person_Ratings")
     st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, key="pickup_delay_min")
     st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
     st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
     st.selectbox("Festival", ["Yes","No"], key="Festival")
-
-with col2:
     st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Restaurant_latitude")
     st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Restaurant_longitude")
     st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Delivery_location_latitude")
     st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Delivery_location_longitude")
 
-# ---- Predict Button ----
-if st.button("🚀 Predict Delivery Time"):
-    input_data = {key: st.session_state[key] for key in default_values.keys()}
-    st.session_state["predictions"] = predict_delivery_time(input_data)
+    if st.button("🚀 Predict Delivery Time"):
+        input_data = {key: st.session_state[key] for key in default_values.keys()}
+        st.session_state["predictions"] = predict_delivery_time(input_data)
 
-    # Calculate model metrics
-    models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
-    metrics_list = []
-    for name, model in models.items():
-        y_pred = model.predict(X_test)
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-        mae = mean_absolute_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
-    st.session_state["metrics_df"] = pd.DataFrame(metrics_list).set_index("Model")
+        # Calculate model metrics
+        models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
+        metrics_list = []
+        for name, model in models.items():
+            y_pred = model.predict(X_test)
+            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+            mae = mean_absolute_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
+            metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
+        st.session_state["metrics_df"] = pd.DataFrame(metrics_list).set_index("Model")
 
-# ---- Render Outputs Safely from Session State ----
-if "predictions" in st.session_state:
-    st.subheader("📊 Predicted Delivery Times (minutes)")
-    preds = st.session_state["predictions"]
-    col1, col2, col3 = st.columns(3)
-    
-    col1.metric(label="Linear Regression", value=f"{preds['Linear Regression']} min")
-    col2.metric(label="Decision Tree", value=f"{preds['Decision Tree']} min")
-    col3.metric(label="Random Forest", value=f"{preds['Random Forest']} min")
+# ---- Column 2: Predictions & Metrics ----
+with col2:
+    st.subheader("📊 Predictions")
+    if "predictions" in st.session_state:
+        st.write(st.session_state["predictions"])
+        st.bar_chart(pd.DataFrame(list(st.session_state["predictions"].items()), columns=["Model","Predicted Time"]).set_index("Model"))
 
-if "predictions" in st.session_state:
-    preds = st.session_state["predictions"]
-    fastest_model = min(preds, key=preds.get)
+    st.subheader("📈 Model Accuracy")
+    if "metrics_df" in st.session_state:
+        st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
+        best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
+        st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
 
-
-if "metrics_df" in st.session_state:
-    st.subheader("📈 Model Accuracy on Test Set")
-    st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
-    best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
-    
-
-# ---- Map Visualization ----
-st.subheader("🗺️ Delivery Route Visualization")
-route_data = get_ors_route(
-    st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
-    st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
-)
-if route_data:
-    map_center = [(st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"])/2,
-                  (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"])/2]
-    m = folium.Map(location=map_center, zoom_start=13)
-    folium.GeoJson(route_data, name="Route").add_to(m)
-    folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
-                  tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
-    folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
-                  tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
-else:
-    m = visualize_route_simple(
+# ---- Column 3: Map Visualization ----
+with col3:
+    st.subheader("🗺️ Delivery Route")
+    route_data = get_ors_route(
         st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
+    if route_data:
+        map_center = [(st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"])/2,
+                      (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"])/2]
+        m = folium.Map(location=map_center, zoom_start=13)
+        folium.GeoJson(route_data, name="Route").add_to(m)
+        folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+                      tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+                      tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
+    else:
+        m = visualize_route_simple(
+            st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
+            st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
+        )
 
-st_folium(m, width=700, height=500)
+    st_folium(m, width=700, height=500)
