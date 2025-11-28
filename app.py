@@ -130,22 +130,23 @@ def generate_random_delivery_data():
         "Type_of_vehicle": random.choice(["Bike","Car","Scooter"]),
         "Festival": random.choice(["Yes","No"])
     }
-# =============================================
-# Distance Calculator Function
-# =============================================
 
-def haversine_distance(lat1, lon1, lat2, lon2):
-    
-    R = 6371 
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-    
-    a = math.sin(delta_phi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(delta_lambda/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    
-    return R * c
+@st.cache_data(ttl=600)
+def get_ors_distance(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    """
+    Calculate driving distance (km) using ORS without affecting prediction.
+    """
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        # Distance is in meters, convert to km
+        distance_km = route['features'][0]['properties']['segments'][0]['distance'] / 1000
+        duration_min = route['features'][0]['properties']['segments'][0]['duration'] / 60
+        return distance_km, duration_min
+    except:
+        return None, None
+
 
 # ============================================
 # Prediction Function
@@ -301,14 +302,18 @@ with col_map:
             st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
         )
     st_folium(m, width=700, height=500)
-        with col_input:
-            distance = haversine_distance(
-                st.session_state["Restaurant_latitude"],
-                st.session_state["Restaurant_longitude"],
-                st.session_state["Delivery_location_latitude"],
-                st.session_state["Delivery_location_longitude"]
+
+    # --- ORS Driving Distance Display ---
+    distance_km, duration_min = get_ors_distance(
+        st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
+        st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
-        st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
+    if distance_km is not None:
+        st.markdown(f"**🛣️ Driving Distance:** {distance_km:.2f} km")
+        st.markdown(f"**⏱️ Estimated Driving Duration:** {duration_min:.1f} min")
+    else:
+        st.markdown("**⚠️ Could not calculate driving distance.**")
+
 
 
 
