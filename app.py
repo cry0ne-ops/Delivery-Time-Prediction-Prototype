@@ -1,5 +1,5 @@
 # ============================================
-# Streamlit Delivery Time Dashboard
+# Streamlit Delivery Time Dashboard (Crash-Proof)
 # ============================================
 
 import streamlit as st
@@ -10,6 +10,7 @@ import random
 import folium
 from streamlit_folium import st_folium
 from openrouteservice import Client
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import math
 import matplotlib.pyplot as plt
@@ -45,7 +46,7 @@ if "Time_Orderd" in df.columns and "Time_Order_picked" in df.columns:
         try:
             h, m, *_ = map(int, str(time_str).split(":"))
             return h*100 + m
-        except: 
+        except:
             try: return int(time_str)
             except: return np.nan
     df["Time_Orderd"] = df["Time_Orderd"].apply(clean_time)
@@ -58,7 +59,6 @@ if "Time_Orderd" in df.columns and "Time_Order_picked" in df.columns:
 if "Time_taken(min)" in df.columns:
     df["Time_taken(min)"] = df["Time_taken(min)"].astype(str).str.replace('(min) ','',regex=False).astype(float)
 
-# Features & target
 TARGET = "Time_taken(min)"
 FEATURES = [
     "Delivery_person_Age","Delivery_person_Ratings",
@@ -72,8 +72,6 @@ FEATURES = [
 FEATURES = [f for f in FEATURES if f in df.columns]
 X = df[FEATURES]
 y = df[TARGET]
-
-from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # ============================================
@@ -82,7 +80,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="
 
 # ============================================
-# 4. Streamlit Session Defaults
+# 4. Default Values
 # ============================================
 default_values = {
     "Delivery_person_Age": 25,
@@ -133,25 +131,29 @@ def generate_random_delivery_data():
     }
 
 # ============================================
-# 6. Prediction Function (Preprocessor Wired)
+# 6. Crash-Proof Prediction Function
 # ============================================
-def predict_delivery_time(input_data, preprocessor, models):
-    df_input = pd.DataFrame([input_data])
+def predict_delivery_time(input_data, preprocessor, models, default_values):
     try:
+        df_input = pd.DataFrame([input_data])
+        # Fill missing columns with defaults
+        for col, val in default_values.items():
+            if col not in df_input.columns:
+                df_input[col] = val
+        # Reorder columns to match preprocessor
+        preproc_cols = getattr(preprocessor, "feature_names_in_", df_input.columns)
+        df_input = df_input.reindex(columns=preproc_cols, fill_value=0)
+        # Transform
         X_processed = preprocessor.transform(df_input)
-    except Exception as e:
-        st.error(f"Preprocessing failed: {e}")
-        return None
-
-    predictions = {}
-    for name, model in models.items():
-        try:
+        # Predict
+        predictions = {}
+        for name, model in models.items():
             pred = model.predict(X_processed)[0]
-            predictions[name] = round(float(pred),2)
-        except Exception as e:
-            predictions[name] = None
-            st.error(f"Prediction failed for {name}: {e}")
-    return predictions
+            predictions[name] = round(float(pred), 2)
+        return predictions
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
+        return {}
 
 # ============================================
 # 7. ORS Route + Distance
@@ -167,13 +169,10 @@ def get_ors_route(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
 
 def haversine_km(lat1, lon1, lat2, lon2):
     R = 6371.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    dphi = math.radians(lat2-lat1)
-    dlambda = math.radians(lon2-lon1)
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi, dlambda = math.radians(lat2-lat1), math.radians(lon2-lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return R * c
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 def visualize_route_simple(lat1, lon1, lat2, lon2):
     m = folium.Map(location=[(lat1+lat2)/2,(lon1+lon2)/2], zoom_start=13)
@@ -183,21 +182,21 @@ def visualize_route_simple(lat1, lon1, lat2, lon2):
     return m
 
 # ============================================
-# 8. Streamlit UI (Dashboard Style)
+# 8. Streamlit UI
 # ============================================
 st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
 st.title("🛵 Delivery Time Predictor Dashboard")
 st.markdown("Glassmorphic cards, ORS route, distances, predictions, and charts.")
 
-# Columns layout: left=inputs, right=outputs
+# Left = Inputs, Right = Outputs
 left_col, right_col = st.columns([1,1.4], gap="large")
 
 with left_col:
     st.subheader("📋 Delivery Details")
     if st.button("🎲 Generate Random Delivery Details"):
-        random_data = generate_random_delivery_data()
-        for key, val in random_data.items():
-            st.session_state[key] = val
+        rand_data = generate_random_delivery_data()
+        for k,v in rand_data.items():
+            st.session_state[k] = v
         st.success("Random details generated!")
 
     st.number_input("Delivery Person Age", min_value=18, max_value=60, key="Delivery_person_Age")
@@ -206,8 +205,6 @@ with left_col:
     st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
     st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
     st.selectbox("Festival", ["Yes","No"], key="Festival")
-
-    st.markdown("**Supplier & Delivery Location**")
     st.number_input("Supplier Latitude", min_value=-90.0, max_value=90.0, format="%.6f", key="Restaurant_latitude")
     st.number_input("Supplier Longitude", min_value=-180.0, max_value=180.0, format="%.6f", key="Restaurant_longitude")
     st.number_input("Customer Latitude", min_value=-90.0, max_value=90.0, format="%.6f", key="Delivery_location_latitude")
@@ -215,9 +212,9 @@ with left_col:
 
     if st.button("🚀 Predict Delivery Time"):
         input_data = {key: st.session_state[key] for key in default_values.keys()}
-        st.session_state["predictions"] = predict_delivery_time(input_data, preprocessor, models)
+        st.session_state["predictions"] = predict_delivery_time(input_data, preprocessor, models, default_values)
 
-        # Model metrics
+        # Metrics
         metrics_list = []
         for name, model in models.items():
             try:
@@ -232,10 +229,13 @@ with left_col:
 
 with right_col:
     st.subheader("⏱ Predictions & KPIs")
-    if "predictions" in st.session_state:
+    if "predictions" in st.session_state and st.session_state["predictions"]:
         preds = st.session_state["predictions"]
-        for name, val in preds.items():
-            st.metric(name, f"{val} min")
+        if isinstance(preds, dict) and preds:
+            for name, val in preds.items():
+                st.metric(name, f"{val} min")
+        else:
+            st.error("Prediction failed. Please check input values.")
     else:
         st.info("Run prediction to see results.")
 
@@ -276,7 +276,6 @@ with right_col:
     st.subheader("📈 Charts")
     # Chart 1: Actual vs Predicted
     try:
-        chosen_model = "Random Forest"
         preds_test = rf_model.predict(preprocessor.transform(X_test))
         fig, ax = plt.subplots()
         ax.scatter(y_test, preds_test, alpha=0.5)
