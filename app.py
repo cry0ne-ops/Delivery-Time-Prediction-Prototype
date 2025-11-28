@@ -225,9 +225,14 @@ with col1:
 # ---- Column 2: Predictions & Metrics ----
 with col2:
     st.subheader("📊 Predictions")
-    if "predictions" in st.session_state:
-        st.write(st.session_state["predictions"])
-        st.bar_chart(pd.DataFrame(list(st.session_state["predictions"].items()), columns=["Model","Predicted Time"]).set_index("Model"))
+   if "predictions" in st.session_state:
+    st.subheader("📊 Predicted Delivery Times (minutes)")
+    preds = st.session_state["predictions"]
+    col1, col2, col3 = st.columns(3)
+    
+    col1.metric(label="Linear Regression", value=f"{preds['Linear Regression']} min")
+    col2.metric(label="Decision Tree", value=f"{preds['Decision Tree']} min")
+    col3.metric(label="Random Forest", value=f"{preds['Random Forest']} min")
 
     st.subheader("📈 Model Accuracy")
     if "metrics_df" in st.session_state:
