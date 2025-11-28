@@ -328,4 +328,3 @@ with col_map:
         st.markdown(f"**⏱️ Estimated Driving Duration:** {duration_min:.1f} min")
     else:
         st.markdown("**⚠️ Could not calculate driving distance.**")
-
