@@ -178,7 +178,7 @@ st.title("🛵 Delivery Time Prediction Dashboard")
 # Use 3 columns for full-width layout
 col_input, col_pred, col_map = st.columns([1,1,1.5])
 
-# --- Column 1: Inputs (Card Style) ---
+# --- Column 1: Inputs (Compact Single Card) ---
 with col_input:
     st.subheader("🔧 Delivery Details")
 
@@ -190,10 +190,13 @@ with col_input:
         st.success("✅ Random delivery details generated!")
 
     # ----------------------
-    # Delivery Person Info Card
+    # Single Compact Card
     # ----------------------
     with st.container():
-        st.markdown("### 👤 Delivery Person Info")
+        st.markdown("### 📋 Delivery Details Card")
+
+        # --- Delivery Person Info ---
+        st.markdown("**👤 Delivery Person Info**")
         dp_col1, dp_col2 = st.columns(2)
         with dp_col1:
             st.slider("Age", 18, 60, st.session_state["Delivery_person_Age"], key="Delivery_person_Age")
@@ -201,13 +204,10 @@ with col_input:
             st.slider("Rating", 0.0, 5.0, st.session_state["Delivery_person_Ratings"], step=0.1, key="Delivery_person_Ratings")
         st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, key="pickup_delay_min")
 
-    st.markdown("---")  # Separator between cards
+        st.markdown("---")
 
-    # ----------------------
-    # Order Info Card
-    # ----------------------
-    with st.container():
-        st.markdown("### 📦 Order Info")
+        # --- Order Info ---
+        st.markdown("**📦 Order Info**")
         order_col1, order_col2 = st.columns(2)
         with order_col1:
             st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
@@ -217,13 +217,10 @@ with col_input:
             st.selectbox("Weather Conditions", ["Sunny","Cloudy","Rainy","Stormy","Fog"], key="Weatherconditions")
             st.selectbox("Traffic Density", ["Low","Medium","High","Jam"], key="Road_traffic_density")
 
-    st.markdown("---")  # Separator
+        st.markdown("---")
 
-    # ----------------------
-    # Location Info Card
-    # ----------------------
-    with st.container():
-        st.markdown("### 📍 Location Info")
+        # --- Location Info ---
+        st.markdown("**📍 Delivery Locations**")
         loc_col1, loc_col2 = st.columns(2)
         with loc_col1:
             st.number_input("Restaurant Latitude", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
@@ -232,25 +229,26 @@ with col_input:
             st.number_input("Delivery Latitude", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
             st.number_input("Delivery Longitude", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
 
-    st.markdown("---")  # Separator
+        st.markdown("---")
 
-    # Predict Button
-    if st.button("🚀 Predict Delivery Time"):
-        input_data = {k: st.session_state[k] for k in default_values.keys()}
-        st.session_state["predictions"] = predict_delivery_time(input_data)
+        # Predict Button
+        if st.button("🚀 Predict Delivery Time"):
+            input_data = {k: st.session_state[k] for k in default_values.keys()}
+            st.session_state["predictions"] = predict_delivery_time(input_data)
 
-        # Compute model metrics
-        models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
-        metrics = []
-        for name, model in models.items():
-            y_pred = model.predict(X_test)
-            metrics.append({
-                "Model": name,
-                "RMSE": np.sqrt(mean_squared_error(y_test, y_pred)),
-                "MAE": mean_absolute_error(y_test, y_pred),
-                "R²": r2_score(y_test, y_pred)
-            })
-        st.session_state["metrics_df"] = pd.DataFrame(metrics).set_index("Model")
+            # Compute model metrics
+            models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
+            metrics = []
+            for name, model in models.items():
+                y_pred = model.predict(X_test)
+                metrics.append({
+                    "Model": name,
+                    "RMSE": np.sqrt(mean_squared_error(y_test, y_pred)),
+                    "MAE": mean_absolute_error(y_test, y_pred),
+                    "R²": r2_score(y_test, y_pred)
+                })
+            st.session_state["metrics_df"] = pd.DataFrame(metrics).set_index("Model")
+
 
 # --- Column 2: Predictions & Metrics ---
 with col_pred:
