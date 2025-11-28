@@ -16,7 +16,7 @@ from openrouteservice import Client
 # ============================================
 # 1. ORS API Key
 # ============================================
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="  # Replace with your ORS API Key
+ORS_API_KEY = "YOUR_ORS_API_KEY_HERE"
 
 # ============================================
 # 2. Load Dataset
@@ -28,9 +28,7 @@ df.columns = df.columns.str.strip().str.replace(" ", "_")
 # 3. Feature Engineering
 # ============================================
 if "Order_Date" in df.columns:
-    df["Order_Date"] = pd.to_datetime(
-        df["Order_Date"].astype(str), format="%d/%m/%Y", errors="coerce"
-    )
+    df["Order_Date"] = pd.to_datetime(df["Order_Date"].astype(str), format="%d/%m/%Y", errors="coerce")
     df["order_day_of_week"] = df["Order_Date"].dt.dayofweek
     df["order_month"] = df["Order_Date"].dt.month
 
@@ -74,6 +72,7 @@ FEATURES = [
     "Type_of_order","Type_of_vehicle","Festival"
 ]
 FEATURES = [f for f in FEATURES if f in df.columns]
+
 X = df[FEATURES]
 y = df[TARGET]
 
@@ -176,8 +175,7 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
     m = folium.Map(location=map_center, zoom_start=13)
     folium.Marker([restaurant_lat, restaurant_long], tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
     folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
-    folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)],
-                    color="blue", weight=3, opacity=0.8).add_to(m)
+    folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)], color="blue", weight=3, opacity=0.8).add_to(m)
     return m
 
 # ============================================
@@ -203,23 +201,19 @@ with col1:
     st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
     st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
     st.selectbox("Festival", ["Yes","No"], key="Festival")
+
 with col2:
     st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Restaurant_latitude")
     st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Restaurant_longitude")
     st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Delivery_location_latitude")
     st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Delivery_location_longitude")
-    st.number_input("Supplier Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Restaurant_latitude")
-    st.number_input("Supplier Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Restaurant_longitude")
-    st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Delivery_location_latitude")
-    st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
-    # Save input to session_state
     input_data = {key: st.session_state[key] for key in default_values.keys()}
     st.session_state["predictions"] = predict_delivery_time(input_data)
 
-    # Model Accuracy
+    # Calculate model metrics
     models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
     metrics_list = []
     for name, model in models.items():
@@ -234,8 +228,7 @@ if st.button("🚀 Predict Delivery Time"):
 if "predictions" in st.session_state:
     st.subheader("📊 Predicted Delivery Times (minutes)")
     st.write(st.session_state["predictions"])
-    st.bar_chart(pd.DataFrame(list(st.session_state["predictions"].items()),
-                              columns=["Model","Predicted Time"]).set_index("Model"))
+    st.bar_chart(pd.DataFrame(list(st.session_state["predictions"].items()), columns=["Model","Predicted Time"]).set_index("Model"))
 
 if "metrics_df" in st.session_state:
     st.subheader("📈 Model Accuracy on Test Set")
@@ -246,10 +239,8 @@ if "metrics_df" in st.session_state:
 # ---- Map Visualization ----
 st.subheader("🗺️ Delivery Route Visualization")
 route_data = get_ors_route(
-    st.session_state["Restaurant_latitude"],
-    st.session_state["Restaurant_longitude"],
-    st.session_state["Delivery_location_latitude"],
-    st.session_state["Delivery_location_longitude"]
+    st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
+    st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
 )
 if route_data:
     map_center = [(st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"])/2,
@@ -262,9 +253,8 @@ if route_data:
                   tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
 else:
     m = visualize_route_simple(
-        st.session_state["Restaurant_latitude"],
-        st.session_state["Restaurant_longitude"],
-        st.session_state["Delivery_location_latitude"],
-        st.session_state["Delivery_location_longitude"]
+        st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
+        st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
+
 st_folium(m, width=700, height=500)
