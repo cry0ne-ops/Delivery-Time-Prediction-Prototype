@@ -309,4 +309,4 @@ with col_map:
                 st.session_state["Delivery_location_latitude"],
                 st.session_state["Delivery_location_longitude"]
     )
-                st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
+    st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
