@@ -178,7 +178,7 @@ st.title("🛵 Delivery Time Prediction Dashboard")
 # Use 3 columns for full-width layout
 col_input, col_pred, col_map = st.columns([1,1,1.5])
 
-# --- Column 1: Inputs (Compact Single Card) ---
+# --- Column 1: Compact Delivery Details Card ---
 with col_input:
     st.subheader("🔧 Delivery Details")
 
@@ -195,43 +195,36 @@ with col_input:
     with st.container():
         st.markdown("### 📋 Delivery Details Card")
 
-        # --- Delivery Person Info ---
-        st.markdown("**👤 Delivery Person Info**")
-        dp_col1, dp_col2 = st.columns(2)
+        # --- Delivery Person + Pickup Delay in 1 row ---
+        dp_col1, dp_col2, dp_col3 = st.columns([1,1,1])
         with dp_col1:
             st.slider("Age", 18, 60, st.session_state["Delivery_person_Age"], key="Delivery_person_Age")
         with dp_col2:
             st.slider("Rating", 0.0, 5.0, st.session_state["Delivery_person_Ratings"], step=0.1, key="Delivery_person_Ratings")
-        st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, key="pickup_delay_min")
+        with dp_col3:
+            st.number_input("Pickup Delay (min)", 0, 120, st.session_state["pickup_delay_min"], key="pickup_delay_min")
 
-        st.markdown("---")
-
-        # --- Order Info ---
-        st.markdown("**📦 Order Info**")
-        order_col1, order_col2 = st.columns(2)
+        # --- Order Info + Type + Festival + Vehicle in 2 rows ---
+        order_col1, order_col2 = st.columns([1,1])
         with order_col1:
-            st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
-            st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
+            st.selectbox("Order Type", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
+            st.selectbox("Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
         with order_col2:
             st.selectbox("Festival?", ["Yes","No"], key="Festival")
-            st.selectbox("Weather Conditions", ["Sunny","Cloudy","Rainy","Stormy","Fog"], key="Weatherconditions")
-            st.selectbox("Traffic Density", ["Low","Medium","High","Jam"], key="Road_traffic_density")
+            st.selectbox("Weather", ["Sunny","Cloudy","Rainy","Stormy","Fog"], key="Weatherconditions")
+            st.selectbox("Traffic", ["Low","Medium","High","Jam"], key="Road_traffic_density")
 
-        st.markdown("---")
-
-        # --- Location Info ---
-        st.markdown("**📍 Delivery Locations**")
-        loc_col1, loc_col2 = st.columns(2)
+        # --- Location Info compact in 2 columns ---
+        loc_col1, loc_col2 = st.columns([1,1])
         with loc_col1:
-            st.number_input("Restaurant Latitude", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
-            st.number_input("Restaurant Longitude", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
+            st.number_input("Restaurant Lat", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
+            st.number_input("Restaurant Lon", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
         with loc_col2:
-            st.number_input("Delivery Latitude", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
-            st.number_input("Delivery Longitude", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
+            st.number_input("Delivery Lat", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
+            st.number_input("Delivery Lon", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
 
-        st.markdown("---")
-
-        # Predict Button
+        # --- Predict Button ---
+        st.markdown("")
         if st.button("🚀 Predict Delivery Time"):
             input_data = {k: st.session_state[k] for k in default_values.keys()}
             st.session_state["predictions"] = predict_delivery_time(input_data)
@@ -248,6 +241,7 @@ with col_input:
                     "R²": r2_score(y_test, y_pred)
                 })
             st.session_state["metrics_df"] = pd.DataFrame(metrics).set_index("Model")
+
 
 
 # --- Column 2: Predictions & Metrics ---
