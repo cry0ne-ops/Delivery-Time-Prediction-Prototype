@@ -302,13 +302,13 @@ with col_map:
         )
     st_folium(m, width=700, height=500)
         with col_input:
-    distance = haversine_distance(
-        st.session_state["Restaurant_latitude"],
-        st.session_state["Restaurant_longitude"],
-        st.session_state["Delivery_location_latitude"],
-        st.session_state["Delivery_location_longitude"]
+            distance = haversine_distance(
+                st.session_state["Restaurant_latitude"],
+                st.session_state["Restaurant_longitude"],
+                st.session_state["Delivery_location_latitude"],
+                st.session_state["Delivery_location_longitude"]
     )
-    st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
+        st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
 
 
 
