@@ -284,22 +284,31 @@ with col_map:
         st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
-    if route:
-        map_center = [
-            (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
-            (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
-        ]
-        m = folium.Map(location=map_center, zoom_start=13)
-        folium.GeoJson(route, name="Route").add_to(m)
-        folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
-                      tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
-        folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
-                      tooltip="Delivery", icon=folium.Icon(color='red')).add_to(m)
-    else:
-        m = visualize_route_simple(
-            st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
-            st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
-        )
+
+    map_center = [
+        (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
+        (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
+    ]
+    m = folium.Map(location=map_center, zoom_start=13)
+    
+    # Plot ORS route if available
+    if route and 'features' in route and len(route['features']) > 0:
+        folium.GeoJson(
+            route['features'][0]['geometry'],  # <-- Only the geometry
+            name="Route",
+            style_function=lambda x: {"color": "blue", "weight": 4, "opacity": 0.8}
+        ).add_to(m)
+    
+    # Plot markers
+    folium.Marker(
+        [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+        tooltip="Restaurant", icon=folium.Icon(color='green')
+    ).add_to(m)
+    folium.Marker(
+        [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+        tooltip="Delivery", icon=folium.Icon(color='red')
+    ).add_to(m)
+
     st_folium(m, width=700, height=500)
         
     with col_input:
