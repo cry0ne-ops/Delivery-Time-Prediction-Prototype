@@ -178,31 +178,68 @@ st.title("🛵 Delivery Time Prediction Dashboard")
 # Use 3 columns for full-width layout
 col_input, col_pred, col_map = st.columns([1,1,1.5])
 
-# --- Column 1: Inputs ---
+# --- Column 1: Inputs (Card Style) ---
 with col_input:
-    st.subheader("🔧 Delivery Inputs")
+    st.subheader("🔧 Delivery Details")
+
+    # Random data button
     if st.button("🎲 Generate Random Delivery Details"):
         random_data = generate_random_delivery_data()
         for k, v in random_data.items():
             st.session_state[k] = v
         st.success("✅ Random delivery details generated!")
 
-    st.number_input("Delivery Person Age", min_value=18, max_value=60, key="Delivery_person_Age", format="%d")
-    st.number_input("Delivery Person Rating", min_value=0.0, max_value=5.0, step=0.1, key="Delivery_person_Ratings")
-    st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, key="pickup_delay_min")
-    st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
-    st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
-    st.selectbox("Festival", ["Yes","No"], key="Festival")
-    st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, key="Restaurant_latitude", format="%.6f")
-    st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, key="Restaurant_longitude", format="%.6f")
-    st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, key="Delivery_location_latitude", format="%.6f")
-    st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, key="Delivery_location_longitude", format="%.6f")
+    # ----------------------
+    # Delivery Person Info Card
+    # ----------------------
+    with st.container():
+        st.markdown("### 👤 Delivery Person Info")
+        dp_col1, dp_col2 = st.columns(2)
+        with dp_col1:
+            st.slider("Age", 18, 60, st.session_state["Delivery_person_Age"], key="Delivery_person_Age")
+        with dp_col2:
+            st.slider("Rating", 0.0, 5.0, st.session_state["Delivery_person_Ratings"], step=0.1, key="Delivery_person_Ratings")
+        st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, key="pickup_delay_min")
 
+    st.markdown("---")  # Separator between cards
+
+    # ----------------------
+    # Order Info Card
+    # ----------------------
+    with st.container():
+        st.markdown("### 📦 Order Info")
+        order_col1, order_col2 = st.columns(2)
+        with order_col1:
+            st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
+            st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
+        with order_col2:
+            st.selectbox("Festival?", ["Yes","No"], key="Festival")
+            st.selectbox("Weather Conditions", ["Sunny","Cloudy","Rainy","Stormy","Fog"], key="Weatherconditions")
+            st.selectbox("Traffic Density", ["Low","Medium","High","Jam"], key="Road_traffic_density")
+
+    st.markdown("---")  # Separator
+
+    # ----------------------
+    # Location Info Card
+    # ----------------------
+    with st.container():
+        st.markdown("### 📍 Location Info")
+        loc_col1, loc_col2 = st.columns(2)
+        with loc_col1:
+            st.number_input("Restaurant Latitude", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
+            st.number_input("Restaurant Longitude", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
+        with loc_col2:
+            st.number_input("Delivery Latitude", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
+            st.number_input("Delivery Longitude", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
+
+    st.markdown("---")  # Separator
+
+    # Predict Button
     if st.button("🚀 Predict Delivery Time"):
         input_data = {k: st.session_state[k] for k in default_values.keys()}
         st.session_state["predictions"] = predict_delivery_time(input_data)
 
-        # Compute metrics
+        # Compute model metrics
         models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
         metrics = []
         for name, model in models.items():
