@@ -301,11 +301,7 @@ with col_map:
             st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
         )
     st_folium(m, width=700, height=500)
-
-    # --- Distance Calculator ---
-with col_input:
-    st.markdown("### 📏 Distance Calculator (km)")
-
+        with col_input:
     distance = haversine_distance(
         st.session_state["Restaurant_latitude"],
         st.session_state["Restaurant_longitude"],
@@ -313,4 +309,6 @@ with col_input:
         st.session_state["Delivery_location_longitude"]
     )
     st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
+
+
 
