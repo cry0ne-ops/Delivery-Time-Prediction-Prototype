@@ -7,3 +7,4 @@ streamlit-folium
 requests
 scikit-learn == 1.6.1
 openrouteservice
+matplotlib
