@@ -286,30 +286,28 @@ with col_map:
     )
 
     map_center = [
-        (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
-        (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
-    ]
-    m = folium.Map(location=map_center, zoom_start=13)
-    
-    # Plot ORS route if available
-    if route and 'features' in route and len(route['features']) > 0:
-        folium.GeoJson(
-            route['features'][0]['geometry'],  # <-- Only the geometry
-            name="Route",
-            style_function=lambda x: {"color": "blue", "weight": 4, "opacity": 0.8}
-        ).add_to(m)
-    
-    # Plot markers
-    folium.Marker(
-        [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
-        tooltip="Restaurant", icon=folium.Icon(color='green')
-    ).add_to(m)
-    folium.Marker(
-        [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
-        tooltip="Delivery", icon=folium.Icon(color='red')
-    ).add_to(m)
+    (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
+    (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
+]
+m = folium.Map(location=map_center, zoom_start=13)
 
-    st_folium(m, width=700, height=500)
+# Plot ORS route
+if route and 'features' in route and len(route['features']) > 0:
+    coords = route['features'][0]['geometry']['coordinates']
+    coords_latlon = [[lat, lon] for lon, lat in coords]
+    folium.PolyLine(coords_latlon, color='blue', weight=4, opacity=0.8).add_to(m)
+
+# Markers
+folium.Marker(
+    [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+    tooltip="Restaurant", icon=folium.Icon(color='green')
+).add_to(m)
+folium.Marker(
+    [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+    tooltip="Delivery", icon=folium.Icon(color='red')
+).add_to(m)
+
+st_folium(m, width=700, height=500)
         
     with col_input:
             distance = haversine_distance(
