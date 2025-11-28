@@ -235,15 +235,15 @@ with col_input:
         # --- Location Info compact in 2 columns ---
         loc_col1, loc_col2 = st.columns([1,1])
         with loc_col1:
-            st.number_input("Restaurant Lat", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
-            st.number_input("Restaurant Lon", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
+            st.number_input("Supplier Latitude", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
+            st.number_input("Supplier Longitude", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
         with loc_col2:
-            st.number_input("Delivery Lat", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
-            st.number_input("Delivery Lon", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
+            st.number_input("Restaurant Latitude", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
+            st.number_input("Restaurant Longitude", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
 
         # --- Predict Button ---
         st.markdown("")
-        if st.button("🚀 Predict Delivery Time"):
+        if st.button("Predict Delivery Time"):
             input_data = {k: st.session_state[k] for k in default_values.keys()}
             st.session_state["predictions"] = predict_delivery_time(input_data)
 
@@ -276,7 +276,6 @@ with col_pred:
         st.subheader("📈 Model Accuracy on Test Set")
         st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
         best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
-        st.markdown(f" NOTE : Most Accurate Model (RMSE): {best_model}")
 
 # --- Column 3: Map ---
 with col_map:
