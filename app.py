@@ -276,7 +276,7 @@ with col_pred:
         st.subheader("📈 Model Accuracy on Test Set")
         st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
         best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
-        st.success(f"✅ Most Accurate Model (RMSE): {best_model}")
+        st.markdown(f" NOTE : Most Accurate Model (RMSE): {best_model}")
 
 # --- Column 3: Map ---
 with col_map:
