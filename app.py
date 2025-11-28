@@ -237,13 +237,13 @@ if "predictions" in st.session_state:
 if "predictions" in st.session_state:
     preds = st.session_state["predictions"]
     fastest_model = min(preds, key=preds.get)
-    st.success(f"🚀 Fastest Predicted Delivery Time: {preds[fastest_model]} min ({fastest_model})")
+
 
 if "metrics_df" in st.session_state:
     st.subheader("📈 Model Accuracy on Test Set")
     st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
     best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
-    st.success(f"✅ Most Accurate Model Based on RMSE: {best_model}")
+    
 
 # ---- Map Visualization ----
 st.subheader("🗺️ Delivery Route Visualization")
