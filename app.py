@@ -186,6 +186,39 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
     folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
     folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)], color="blue", weight=3, opacity=0.8).add_to(m)
     return m
+@st.cache_data(ttl=600)
+def get_ors_alternative_routes(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    """
+    Get multiple alternative driving routes from ORS.
+    Returns a list of dicts with 'distance', 'duration', and 'geometry'.
+    """
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    try:
+        routes = client.directions(
+            coordinates=coords,
+            profile='driving-car',
+            format='geojson',
+            alternative_routes={
+                "target_count": 3,      # number of alternative routes to return
+                "share_factor": 0.6,    # how different routes should be (0-1)
+                "weight_factor": 2.0
+            }
+        )
+        
+        # Each route is a "feature" in geojson
+        route_list = []
+        for feature in routes['features']:
+            segment = feature['properties']['segments'][0]
+            route_list.append({
+                "distance_km": segment['distance']/1000,
+                "duration_min": segment['duration']/60,
+                "geometry": feature['geometry']
+            })
+        return route_list
+    except Exception as e:
+        print("Error fetching alternative routes:", e)
+        return None
 
 # ============================================
 # Streamlit Dashboard Layout
