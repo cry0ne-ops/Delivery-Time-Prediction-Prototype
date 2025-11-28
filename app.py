@@ -301,7 +301,8 @@ with col_map:
             st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
         )
     st_folium(m, width=700, height=500)
-        with col_input:
+        
+    with col_input:
             distance = haversine_distance(
                 st.session_state["Restaurant_latitude"],
                 st.session_state["Restaurant_longitude"],
