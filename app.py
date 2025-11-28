@@ -13,7 +13,7 @@ import math
 # ============================================
 # ORS API Key
 # ============================================
-ORS_API_KEY = "YOUR_ORS_API_KEY_HERE"
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0"
 
 # ============================================
 # Load Dataset
@@ -185,6 +185,22 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
     folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
     folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)], color="blue", weight=3, opacity=0.8).add_to(m)
     return m
+    
+@st.cache_data(ttl=600)
+def get_ors_distance(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    """
+    Calculate driving distance (km) using ORS without affecting prediction.
+    """
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    try:
+        route = client.directions(coords, profile='driving-car', format='geojson')
+        # Distance is in meters, convert to km
+        distance_km = route['features'][0]['properties']['segments'][0]['distance'] / 1000
+        duration_min = route['features'][0]['properties']['segments'][0]['duration'] / 60
+        return distance_km, duration_min
+    except:
+        return None, None
 
 # ============================================
 # Streamlit Dashboard Layout
