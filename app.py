@@ -204,10 +204,10 @@ with col1:
     st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
     st.selectbox("Festival", ["Yes","No"], key="Festival")
 with col2:
-    st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Restaurant_latitude")
-    st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Restaurant_longitude")
-    st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Delivery_location_latitude")
-    st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Delivery_location_longitude")
+    st.number_input("Supplier Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Restaurant_latitude")
+    st.number_input("Supplier Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Restaurant_longitude")
+    st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Delivery_location_latitude")
+    st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Delivery_location_longitude")
 
 # ---- Predict Button ----
 if st.button("🚀 Predict Delivery Time"):
