@@ -262,4 +262,4 @@ with col3:
             st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
         )
 
-    st_folium(m, width=700, height=500)
+    st_folium(m, width=500, height=500)
