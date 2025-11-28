@@ -1,221 +1,311 @@
 # ============================================
-# 9. Streamlit UI (Glassmorphic Cards + Distances)
+# Streamlit App: Persistent Delivery Time Prediction with ORS Map
 # ============================================
-st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
-st.markdown(
-    """
-    <style>
-    /* Glassmorphic card */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 16px;
-        padding: 18px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        color: #eaeaea;
-        margin-bottom: 16px;
-    }
-    .glass-header {
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-    .kpi {
-        font-size: 28px;
-        font-weight: 800;
-        margin-top: 4px;
-    }
-    .muted {
-        color: #bfc6cc;
-        font-size: 13px;
-    }
-    /* Make Streamlit background slightly dark for contrast */
-    .stApp {
-        background: linear-gradient(135deg, rgba(10,20,30,1) 0%, rgba(20,28,40,1) 100%);
-        color: #eaeaea;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+
+import streamlit as st
+import pandas as pd
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import numpy as np
+import random
+import folium
+from streamlit_folium import st_folium
+from openrouteservice import Client
+import plotly.express as px
+
+# ============================================
+# 1. ORS API Key
+# ============================================
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="
+
+# ============================================
+# 2. Load Dataset
+# ============================================
+df = pd.read_csv("update dataset (1).csv")
+df.columns = df.columns.str.strip().str.replace(" ", "_")
+
+# ============================================
+# 3. Feature Engineering
+# ============================================
+if "Order_Date" in df.columns:
+    df["Order_Date"] = pd.to_datetime(
+        df["Order_Date"].astype(str), format="%d/%m/%Y", errors="coerce"
+    )
+    df["order_day_of_week"] = df["Order_Date"].dt.dayofweek
+    df["order_month"] = df["Order_Date"].dt.month
+
+def clean_time_to_hhmm_int(time_str):
+    time_str = str(time_str).strip()
+    if ':' in time_str:
+        try:
+            dt_obj = pd.to_datetime(time_str, format='%H:%M:%S').time()
+            return dt_obj.hour*100 + dt_obj.minute
+        except:
+            return np.nan
+    else:
+        try:
+            return int(time_str.zfill(4))
+        except:
+            return np.nan
+
+for col in ["Time_Orderd", "Time_Order_picked"]:
+    if col in df.columns:
+        df[col] = df[col].apply(clean_time_to_hhmm_int)
+
+if "Time_Orderd" in df.columns and "Time_Order_picked" in df.columns:
+    df.dropna(subset=["Time_Orderd", "Time_Order_picked"], inplace=True)
+    df["Time_Orderd"] = df["Time_Orderd"].astype(int)
+    df["Time_Order_picked"] = df["Time_Order_picked"].astype(int)
+    df["order_hour"] = df["Time_Orderd"] // 100
+    df["pickup_hour"] = df["Time_Order_picked"] // 100
+    df["pickup_delay_min"] = ((df["pickup_hour"] - df["order_hour"])*60).clip(lower=0)
+
+if "Time_taken(min)" in df.columns:
+    df["Time_taken(min)"] = df["Time_taken(min)"].astype(str).str.replace('(min) ', '', regex=False).astype(float)
+
+TARGET = "Time_taken(min)"
+FEATURES = [
+    "Delivery_person_Age","Delivery_person_Ratings",
+    "Restaurant_latitude","Restaurant_longitude",
+    "Delivery_location_latitude","Delivery_location_longitude",
+    "multiple_deliveries","order_day_of_week","order_month",
+    "order_hour","pickup_hour","pickup_delay_min",
+    "Weatherconditions","Road_traffic_density",
+    "Type_of_order","Type_of_vehicle","Festival"
+]
+
+FEATURES = [f for f in FEATURES if f in df.columns]
+X = df[FEATURES]
+y = df[TARGET]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
 )
 
-st.title("🛵 Delivery Time Predictor — Glass Dashboard")
-st.markdown("Generate delivery details or enter your own. Predictions, model metrics, distances and route map are shown in glass cards.")
+# ============================================
+# 4. Load Models
+# ============================================
+preprocessor = joblib.load("preprocessing_pipeline.pkl")
+lr_model = joblib.load("linear_regression_model.pkl")
+dt_model = joblib.load("decision_tree_model.pkl")
+rf_model = joblib.load("random_forest_model.pkl")
 
-# ---------------------------
-# Utility: haversine distance
-# ---------------------------
-import math
-def haversine_km(lat1, lon1, lat2, lon2):
-    # convert decimal degrees to radians
-    R = 6371.0  # Earth radius in km
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2.0)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2.0)**2
-    c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return R * c
+# ============================================
+# 5. Session State Initialization
+# ============================================
+default_values = {
+    "Delivery_person_Age": 25,
+    "Delivery_person_Ratings": 4.0,
+    "pickup_delay_min": 5,
+    "Type_of_order": "Meat",
+    "Type_of_vehicle": "Bike",
+    "Festival": "No",
+    "Restaurant_latitude": 12.9716,
+    "Restaurant_longitude": 77.5946,
+    "Delivery_location_latitude": 12.9352,
+    "Delivery_location_longitude": 77.6245,
+    "multiple_deliveries": 1,
+    "order_day_of_week": 0,
+    "order_month": 1,
+    "order_hour": 12,
+    "pickup_hour": 12,
+    "Weatherconditions": "Sunny",
+    "Road_traffic_density": "Low"
+}
 
-# ---------------------------
-# Layout: Inputs (left) | Results (right)
-# ---------------------------
-left_col, right_col = st.columns([1, 1.4], gap="large")
+for key, val in default_values.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
 
-# ---------------------------
-# LEFT: Inputs + Controls
-# ---------------------------
-with left_col:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="glass-header">📋 Delivery Details</div>', unsafe_allow_html=True)
+# ============================================
+# 6. Random Data Generator
+# ============================================
+def generate_random_delivery_data():
+    return {
+        "Delivery_person_Age": random.randint(18, 60),
+        "Delivery_person_Ratings": round(random.uniform(2.5, 5.0), 1),
+        "Restaurant_latitude": round(random.uniform(12.90, 13.00), 6),
+        "Restaurant_longitude": round(random.uniform(77.55, 77.65), 6),
+        "Delivery_location_latitude": round(random.uniform(12.90, 13.00), 6),
+        "Delivery_location_longitude": round(random.uniform(77.55, 77.65), 6),
+        "multiple_deliveries": random.randint(1, 5),
+        "order_day_of_week": random.randint(0, 6),
+        "order_month": random.randint(1, 12),
+        "order_hour": random.randint(8, 22),
+        "pickup_hour": random.randint(8, 23),
+        "pickup_delay_min": random.randint(0, 30),
+        "Weatherconditions": random.choice(["Sunny","Cloudy","Rainy","Stormy","Fog"]),
+        "Road_traffic_density": random.choice(["Low","Medium","High","Jam"]),
+        "Type_of_order": random.choice(["Meat","Vegetables","Meat or Vegetables"]),
+        "Type_of_vehicle": random.choice(["Bike","Car","Scooter"]),
+        "Festival": random.choice(["Yes","No"])
+    }
 
-    # Random generator (keeps existing behavior)
-    if st.button("🎲 Generate Random Delivery Details"):
-        random_data = generate_random_delivery_data()
-        for key, value in random_data.items():
-            st.session_state[key] = value
-        st.success("✅ Random delivery details generated!")
+# ============================================
+# 7. Prediction Function
+# ============================================
+def predict_delivery_time(input_data):
+    df_input = pd.DataFrame([input_data])
+    numeric_features = [
+        "Delivery_person_Age","Delivery_person_Ratings",
+        "Restaurant_latitude","Restaurant_longitude",
+        "Delivery_location_latitude","Delivery_location_longitude",
+        "multiple_deliveries","order_day_of_week","order_month",
+        "order_hour","pickup_hour","pickup_delay_min"
+    ]
+    df_input[numeric_features] = df_input[numeric_features].astype(float)
+    return {
+        "Linear Regression": round(lr_model.predict(df_input)[0],2),
+        "Decision Tree": round(dt_model.predict(df_input)[0],2),
+        "Random Forest": round(rf_model.predict(df_input)[0],2)
+    }
 
+# ============================================
+# 8. ORS Route with Caching
+# ============================================
+@st.cache_data(ttl=600)
+def get_ors_route(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    client = Client(key=ORS_API_KEY)
+    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
+    try:
+        return client.directions(coords, profile='driving-car', format='geojson')
+    except:
+        return None
+
+def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
+    map_center = [(restaurant_lat + delivery_lat)/2, (restaurant_long + delivery_long)/2]
+    m = folium.Map(location=map_center, zoom_start=13)
+    folium.Marker([restaurant_lat, restaurant_long], tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+    folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
+    folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)],
+                    color="blue", weight=3, opacity=0.8).add_to(m)
+    return m
+
+# ============================================
+# 9. Streamlit UI
+# ============================================
+st.set_page_config(page_title="Delivery Time Predictor 🚀", layout="wide")
+st.title("🛵 Persistent Delivery Time Prediction with ORS Map")
+st.markdown("Generate random delivery details or enter your own to predict delivery times and visualize the delivery route.")
+
+# ---- Random Data Button ----
+if st.button("🎲 Generate Random Delivery Details"):
+    random_data = generate_random_delivery_data()
+    for key, value in random_data.items():
+        st.session_state[key] = value
+    st.success("✅ Random delivery details generated!")
+
+# ---- Input Fields ----
+col1, col2 = st.columns(2)
+with col1:
     st.number_input("Delivery Person Age", min_value=18, max_value=60, key="Delivery_person_Age")
     st.number_input("Delivery Person Rating", min_value=0.0, max_value=5.0, step=0.1, key="Delivery_person_Ratings")
     st.number_input("Pickup Delay (minutes)", min_value=0, max_value=120, key="pickup_delay_min")
     st.selectbox("Type of Order", ["Meat","Vegetables","Meat or Vegetables"], key="Type_of_order")
     st.selectbox("Type of Vehicle", ["Bike","Car","Scooter"], key="Type_of_vehicle")
     st.selectbox("Festival", ["Yes","No"], key="Festival")
+with col2:
+    st.number_input("Restaurant Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Restaurant_latitude")
+    st.number_input("Restaurant Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Restaurant_longitude")
+    st.number_input("Delivery Latitude", min_value=12.90, max_value=13.00, format="%.6f", key="Delivery_location_latitude")
+    st.number_input("Delivery Longitude", min_value=77.55, max_value=77.65, format="%.6f", key="Delivery_location_longitude")
 
-    st.markdown("---")
-    st.markdown('<div class="glass-header">📍 Locations</div>', unsafe_allow_html=True)
-    st.number_input("Supplier Latitude", min_value=-90.0, max_value=90.0, format="%.6f", key="Restaurant_latitude")
-    st.number_input("Supplier Longitude", min_value=-180.0, max_value=180.0, format="%.6f", key="Restaurant_longitude")
-    st.number_input("Customer Latitude", min_value=-90.0, max_value=90.0, format="%.6f", key="Delivery_location_latitude")
-    st.number_input("Customer Longitude", min_value=-180.0, max_value=180.0, format="%.6f", key="Delivery_location_longitude")
+# ---- Predict Button ----
+if st.button("🚀 Predict Delivery Time"):
+    input_data = {key: st.session_state[key] for key in default_values.keys()}
+    st.session_state["predictions"] = predict_delivery_time(input_data)
 
-    st.markdown("---")
-    # Predict button
-    if st.button("🚀 Predict Delivery Time", use_container_width=True):
-        input_data = {key: st.session_state[key] for key in default_values.keys()}
-        st.session_state["predictions"] = predict_delivery_time(input_data)
+    # compute accuracy metrics
+    models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
+    metrics_list = []
+    for name, model in models.items():
+        y_pred = model.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+        metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
+    st.session_state["metrics_df"] = pd.DataFrame(metrics_list).set_index("Model")
 
-        # model metrics -- unchanged logic
-        models = {"Linear Regression": lr_model, "Decision Tree": dt_model, "Random Forest": rf_model}
-        metrics_list = []
-        for name, model in models.items():
-            y_pred = model.predict(X_test)
-            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-            mae = mean_absolute_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
-            metrics_list.append({"Model": name, "RMSE": rmse, "MAE": mae, "R²": r2})
-        st.session_state["metrics_df"] = pd.DataFrame(metrics_list).set_index("Model")
+# ---- Display Predictions (Enhanced UI) ----
+if "predictions" in st.session_state:
+    st.subheader("📊 Predicted Delivery Times (minutes)")
+    preds = st.session_state["predictions"]
+    preds_df = pd.DataFrame(list(preds.items()), columns=["Model", "Predicted_Time"])
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Cards
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Linear Regression", f"{preds['Linear Regression']} min")
+    col2.metric("Decision Tree", f"{preds['Decision Tree']} min")
+    col3.metric("Random Forest", f"{preds['Random Forest']} min")
 
-# ---------------------------
-# RIGHT: Cards (Predictions, Metrics, Distances, Map, Summary)
-# ---------------------------
-with right_col:
-    # Predictions Card
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="glass-header">⏱ Predictions</div>', unsafe_allow_html=True)
-    if "predictions" not in st.session_state:
-        st.markdown('<div class="muted">No predictions yet — click Predict.</div>', unsafe_allow_html=True)
-    else:
-        preds = st.session_state["predictions"]
-        # Show each model as mini KPI inside the card
-        kpi_cols = st.columns(len(preds))
-        for (model_name, value), k in zip(preds.items(), kpi_cols):
-            k.markdown(f"<div class='muted'>{model_name}</div>", unsafe_allow_html=True)
-            k.markdown(f"<div class='kpi'>{value:.1f} min</div>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Fastest prediction
+    fastest = preds_df.loc[preds_df["Predicted_Time"].idxmin()]
+    st.success(f"🚀 Fastest Model: {fastest['Model']} ({fastest['Predicted_Time']} min)")
 
-    # Metrics Card
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="glass-header">📈 Model Metrics (Test Set)</div>', unsafe_allow_html=True)
-    if "metrics_df" in st.session_state:
-        # show dataframe compactly
-        st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
-        best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
-        st.markdown(f"<div class='muted'>Best model (RMSE): <strong>{best_model}</strong></div>", unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="muted">No metrics available yet. Run a prediction to compute metrics.</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Plotly bar chart
+    fig = px.bar(
+        preds_df,
+        x="Model",
+        y="Predicted_Time",
+        text="Predicted_Time",
+        color="Predicted_Time",
+        color_continuous_scale="Viridis",
+        title="Predicted Delivery Times"
+    )
+    fig.update_traces(texttemplate='%{text:.2f} min', textposition='outside')
+    fig.update_layout(yaxis_title="Minutes", xaxis_title="Model", coloraxis_showscale=False)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Distances Card: Haversine + ORS (if available)
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="glass-header">📏 Distances</div>', unsafe_allow_html=True)
+# ---- Model Accuracy Section ----
+if "metrics_df" in st.session_state:
+    st.subheader("📈 Model Accuracy on Test Set")
+    st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
 
-    lat_r = float(st.session_state["Restaurant_latitude"])
-    lon_r = float(st.session_state["Restaurant_longitude"])
-    lat_c = float(st.session_state["Delivery_location_latitude"])
-    lon_c = float(st.session_state["Delivery_location_longitude"])
+    best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
+    st.info(f"🏆 Most Accurate Model Based on RMSE: **{best_model}**")
 
-    # Straight-line
-    try:
-        straight_km = haversine_km(lat_r, lon_r, lat_c, lon_c)
-        st.markdown(f"<div class='muted'>Straight-line distance</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='kpi'>{straight_km:.2f} km</div>", unsafe_allow_html=True)
-    except Exception as e:
-        st.markdown(f"<div class='muted'>Straight-line distance could not be calculated: {e}</div>", unsafe_allow_html=True)
+    # Plotly accuracy chart
+    fig2 = px.bar(
+        st.session_state["metrics_df"].reset_index(),
+        x="Model",
+        y="RMSE",
+        text="RMSE",
+        title="RMSE Comparison"
+    )
+    fig2.update_traces(texttemplate='%{text:.2f}', textposition="outside")
+    st.plotly_chart(fig2, use_container_width=True)
 
-    # ORS driving distance & duration (if route_data available)
-    route_data = get_ors_route(lat_r, lon_r, lat_c, lon_c)
-    if route_data:
-        # openrouteservice geojson structure: features[0].properties.segments[0].distance (meters), duration (seconds)
-        try:
-            feat = route_data.get("features", [None])[0]
-            props = feat.get("properties", {}) if feat else {}
-            segments = props.get("segments", [{}])
-            summary = props.get("summary", {})
-            seg0 = segments[0] if segments and len(segments) > 0 else {}
-            driving_m = seg0.get("distance") or summary.get("distance")
-            driving_s = seg0.get("duration") or summary.get("duration")
-            if driving_m is not None:
-                driving_km = driving_m / 1000.0
-                st.markdown(f"<div class='muted'>ORS driving distance</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='kpi'>{driving_km:.2f} km</div>", unsafe_allow_html=True)
-            if driving_s is not None:
-                driving_min = driving_s / 60.0
-                st.markdown(f"<div class='muted'>ORS estimated drive time</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='kpi'>{driving_min:.1f} min</div>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown(f"<div class='muted'>ORS route available but parsing failed: {e}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="muted">ORS route not available — showing straight-line distance only.</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+# ---- Map Visualization ----
+st.subheader("🗺️ Delivery Route Visualization")
+route_data = get_ors_route(
+    st.session_state["Restaurant_latitude"],
+    st.session_state["Restaurant_longitude"],
+    st.session_state["Delivery_location_latitude"],
+    st.session_state["Delivery_location_longitude"]
+)
 
-    # Map + Summary row
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown('<div class="glass-header">🗺️ Route Map & Summary</div>', unsafe_allow_html=True)
-    map_col, sum_col = st.columns([1.6, 0.9])
+if route_data:
+    map_center = [
+        (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
+        (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
+    ]
+    m = folium.Map(location=map_center, zoom_start=13)
+    folium.GeoJson(route_data, name="Route").add_to(m)
+    folium.Marker(
+        [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+        tooltip="Restaurant", icon=folium.Icon(color='green')
+    ).add_to(m)
+    folium.Marker(
+        [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+        tooltip="Delivery Location", icon=folium.Icon(color='red')
+    ).add_to(m)
+else:
+    m = visualize_route_simple(
+        st.session_state["Restaurant_latitude"],
+        st.session_state["Restaurant_longitude"],
+        st.session_state["Delivery_location_latitude"],
+        st.session_state["Delivery_location_longitude"]
+    )
 
-    with map_col:
-        # Use route_data (cached) if possible, otherwise fallback
-        if route_data:
-            try:
-                map_center = [(lat_r + lat_c)/2.0, (lon_r + lon_c)/2.0]
-                m = folium.Map(location=map_center, zoom_start=13)
-                folium.GeoJson(route_data, name="Route").add_to(m)
-                folium.Marker([lat_r, lon_r], tooltip="Supplier", icon=folium.Icon(color='green')).add_to(m)
-                folium.Marker([lat_c, lon_c], tooltip="Customer", icon=folium.Icon(color='red')).add_to(m)
-            except Exception:
-                m = visualize_route_simple(lat_r, lon_r, lat_c, lon_c)
-        else:
-            m = visualize_route_simple(lat_r, lon_r, lat_c, lon_c)
-
-        st_folium(m, width=700, height=430)
-
-    with sum_col:
-        st.markdown('<div class="muted">Delivery Summary</div>', unsafe_allow_html=True)
-        st.markdown(f"**Driver Age:** {st.session_state['Delivery_person_Age']}")
-        st.markdown(f"**Rating:** {st.session_state['Delivery_person_Ratings']}")
-        st.markdown(f"**Order Type:** {st.session_state['Type_of_order']}")
-        st.markdown(f"**Vehicle:** {st.session_state['Type_of_vehicle']}")
-        st.markdown(f"**Pickup Delay:** {st.session_state['pickup_delay_min']} min")
-        # Traffic & Weather could be missing if not in FEATURES
-        if "Road_traffic_density" in st.session_state:
-            st.markdown(f"**Traffic:** {st.session_state['Road_traffic_density']}")
-        if "Weatherconditions" in st.session_state:
-            st.markdown(f"**Weather:** {st.session_state['Weatherconditions']}")
-
-    st.markdown('</div>', unsafe_allow_html=True)
+st_folium(m, width=900, height=550)
