@@ -13,7 +13,7 @@ import math
 # ============================================
 # ORS API Key
 # ============================================
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0="
+ORS_API_KEY = "YOUR_ORS_API_KEY_HERE"
 
 # ============================================
 # Load Dataset
@@ -130,23 +130,22 @@ def generate_random_delivery_data():
         "Type_of_vehicle": random.choice(["Bike","Car","Scooter"]),
         "Festival": random.choice(["Yes","No"])
     }
+# =============================================
+# Distance Calculator Function
+# =============================================
 
-@st.cache_data(ttl=600)
-def get_ors_distance(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
-    """
-    Calculate driving distance (km) using ORS without affecting prediction.
-    """
-    client = Client(key=ORS_API_KEY)
-    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
-    try:
-        route = client.directions(coords, profile='driving-car', format='geojson')
-        # Distance is in meters, convert to km
-        distance_km = route['features'][0]['properties']['segments'][0]['distance'] / 1000
-        duration_min = route['features'][0]['properties']['segments'][0]['duration'] / 60
-        return distance_km, duration_min
-    except:
-        return None, None
-
+def haversine_distance(lat1, lon1, lat2, lon2):
+    
+    R = 6371 
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(delta_phi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(delta_lambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
 
 # ============================================
 # Prediction Function
@@ -186,39 +185,6 @@ def visualize_route_simple(restaurant_lat, restaurant_long, delivery_lat, delive
     folium.Marker([delivery_lat, delivery_long], tooltip="Delivery Location", icon=folium.Icon(color='red')).add_to(m)
     folium.PolyLine([(restaurant_lat, restaurant_long), (delivery_lat, delivery_long)], color="blue", weight=3, opacity=0.8).add_to(m)
     return m
-@st.cache_data(ttl=600)
-def get_ors_alternative_routes(restaurant_lat, restaurant_long, delivery_lat, delivery_long):
-    """
-    Get multiple alternative driving routes from ORS.
-    Returns a list of dicts with 'distance', 'duration', and 'geometry'.
-    """
-    client = Client(key=ORS_API_KEY)
-    coords = [[restaurant_long, restaurant_lat], [delivery_long, delivery_lat]]
-    try:
-        routes = client.directions(
-            coordinates=coords,
-            profile='driving-car',
-            format='geojson',
-            alternative_routes={
-                "target_count": 3,      # number of alternative routes to return
-                "share_factor": 0.6,    # how different routes should be (0-1)
-                "weight_factor": 2.0
-            }
-        )
-        
-        # Each route is a "feature" in geojson
-        route_list = []
-        for feature in routes['features']:
-            segment = feature['properties']['segments'][0]
-            route_list.append({
-                "distance_km": segment['distance']/1000,
-                "duration_min": segment['duration']/60,
-                "geometry": feature['geometry']
-            })
-        return route_list
-    except Exception as e:
-        print("Error fetching alternative routes:", e)
-        return None
 
 # ============================================
 # Streamlit Dashboard Layout
@@ -268,15 +234,15 @@ with col_input:
         # --- Location Info compact in 2 columns ---
         loc_col1, loc_col2 = st.columns([1,1])
         with loc_col1:
-            st.number_input("Supplier Latitude", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
-            st.number_input("Supplier Longitude", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
+            st.number_input("Restaurant Lat", 12.90, 13.00, st.session_state["Restaurant_latitude"], format="%.6f", key="Restaurant_latitude")
+            st.number_input("Restaurant Lon", 77.55, 77.65, st.session_state["Restaurant_longitude"], format="%.6f", key="Restaurant_longitude")
         with loc_col2:
-            st.number_input("Restaurant Latitude", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
-            st.number_input("Restaurant Longitude", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
+            st.number_input("Delivery Lat", 12.90, 13.00, st.session_state["Delivery_location_latitude"], format="%.6f", key="Delivery_location_latitude")
+            st.number_input("Delivery Lon", 77.55, 77.65, st.session_state["Delivery_location_longitude"], format="%.6f", key="Delivery_location_longitude")
 
         # --- Predict Button ---
         st.markdown("")
-        if st.button("Predict Delivery Time"):
+        if st.button("🚀 Predict Delivery Time"):
             input_data = {k: st.session_state[k] for k in default_values.keys()}
             st.session_state["predictions"] = predict_delivery_time(input_data)
 
@@ -309,67 +275,37 @@ with col_pred:
         st.subheader("📈 Model Accuracy on Test Set")
         st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
         best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
+        st.success(f"✅ Most Accurate Model (RMSE): {best_model}")
 
-# --- Column 3: Map with Alternative Routes ---
+# --- Column 3: Map ---
 with col_map:
-    st.subheader("🗺️ Delivery Routes (ORS Alternatives)")
-
-    # Get alternative routes
-    route_list = get_ors_alternative_routes(
+    st.subheader("🗺️ Delivery Route")
+    route = get_ors_route(
         st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
-
-    # Initialize map centered between restaurant and delivery
-    map_center = [
-        (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
-        (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
-    ]
-    m = folium.Map(location=map_center, zoom_start=13)
-
-    # Add markers for restaurant and delivery
-    folium.Marker(
-        [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
-        tooltip="Restaurant",
-        icon=folium.Icon(color='green')
-    ).add_to(m)
-
-    folium.Marker(
-        [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
-        tooltip="Delivery",
-        icon=folium.Icon(color='red')
-    ).add_to(m)
-
-    # Draw all alternative routes
-    colors = ["blue", "purple", "orange"]  # cycle colors if more than 3 routes
-    if route_list:
-        for i, route in enumerate(route_list):
-            folium.GeoJson(
-                route["geometry"],
-                name=f"Route {i+1}",
-                style_function=lambda x, color=colors[i % len(colors)]: {'color': color, 'weight': 4, 'opacity':0.8}
-            ).add_to(m)
-            st.markdown(f"**Route {i+1}:** {route['distance_km']:.2f} km, {route['duration_min']:.1f} min")
+    if route:
+        map_center = [
+            (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
+            (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
+        ]
+        m = folium.Map(location=map_center, zoom_start=13)
+        folium.GeoJson(route, name="Route").add_to(m)
+        folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+                      tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+                      tooltip="Delivery", icon=folium.Icon(color='red')).add_to(m)
     else:
-        # If ORS fails, draw simple straight line
         m = visualize_route_simple(
             st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
             st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
         )
-        st.markdown("⚠️ Could not fetch alternative routes, showing straight line.")
-
     st_folium(m, width=700, height=500)
-
-    # --- ORS Driving Distance Display ---
-    distance_km, duration_min = get_ors_distance(
-        st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
-        st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
+        with col_input:
+            distance = haversine_distance(
+                st.session_state["Restaurant_latitude"],
+                st.session_state["Restaurant_longitude"],
+                st.session_state["Delivery_location_latitude"],
+                st.session_state["Delivery_location_longitude"]
     )
-    if distance_km is not None:
-        st.markdown(f"**🛣️ Driving Distance:** {distance_km:.2f} km")
-    else:
-        st.markdown("**⚠️ Could not calculate driving distance.**")
-
-
-
-
+        st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
