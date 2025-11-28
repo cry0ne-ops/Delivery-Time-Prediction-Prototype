@@ -302,14 +302,14 @@ with col_map:
         )
     st_folium(m, width=700, height=500)
 
-    # --- Distance Calculator ---
-with col_input:
-    st.markdown("### 📏 Distance Calculator (km)")
-
-    distance = haversine_distance(
-        st.session_state["Restaurant_latitude"],
-        st.session_state["Restaurant_longitude"],
-        st.session_state["Delivery_location_latitude"],
-        st.session_state["Delivery_location_longitude"]
+    # --- ORS Driving Distance Display ---
+    distance_km, duration_min = get_ors_distance(
+        st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
+        st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
-    st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
+    if distance_km is not None:
+        st.markdown(f"**🛣️ Driving Distance:** {distance_km:.2f} km")
+        st.markdown(f"**⏱️ Estimated Driving Duration:** {duration_min:.1f} min")
+    else:
+        st.markdown("**⚠️ Could not calculate driving distance.**")
+
