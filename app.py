@@ -227,8 +227,17 @@ if st.button("🚀 Predict Delivery Time"):
 # ---- Render Outputs Safely from Session State ----
 if "predictions" in st.session_state:
     st.subheader("📊 Predicted Delivery Times (minutes)")
-    st.write(st.session_state["predictions"])
-    st.bar_chart(pd.DataFrame(list(st.session_state["predictions"].items()), columns=["Model","Predicted Time"]).set_index("Model"))
+    preds = st.session_state["predictions"]
+    col1, col2, col3 = st.columns(3)
+    
+    col1.metric(label="Linear Regression", value=f"{preds['Linear Regression']} min")
+    col2.metric(label="Decision Tree", value=f"{preds['Decision Tree']} min")
+    col3.metric(label="Random Forest", value=f"{preds['Random Forest']} min")
+
+if "predictions" in st.session_state:
+    preds = st.session_state["predictions"]
+    fastest_model = min(preds, key=preds.get)
+    st.success(f"🚀 Fastest Predicted Delivery Time: {preds[fastest_model]} min ({fastest_model})")
 
 if "metrics_df" in st.session_state:
     st.subheader("📈 Model Accuracy on Test Set")
