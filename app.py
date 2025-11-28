@@ -277,29 +277,54 @@ with col_pred:
         st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
         best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
 
-# --- Column 3: Map ---
+# --- Column 3: Map with Alternative Routes ---
 with col_map:
-    st.subheader("🗺️ Delivery Route")
-    route = get_ors_route(
+    st.subheader("🗺️ Delivery Routes (ORS Alternatives)")
+
+    # Get alternative routes
+    route_list = get_ors_alternative_routes(
         st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
-    if route:
-        map_center = [
-            (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
-            (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
-        ]
-        m = folium.Map(location=map_center, zoom_start=13)
-        folium.GeoJson(route, name="Route").add_to(m)
-        folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
-                      tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
-        folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
-                      tooltip="Delivery", icon=folium.Icon(color='red')).add_to(m)
+
+    # Initialize map centered between restaurant and delivery
+    map_center = [
+        (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
+        (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
+    ]
+    m = folium.Map(location=map_center, zoom_start=13)
+
+    # Add markers for restaurant and delivery
+    folium.Marker(
+        [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+        tooltip="Restaurant",
+        icon=folium.Icon(color='green')
+    ).add_to(m)
+
+    folium.Marker(
+        [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+        tooltip="Delivery",
+        icon=folium.Icon(color='red')
+    ).add_to(m)
+
+    # Draw all alternative routes
+    colors = ["blue", "purple", "orange"]  # cycle colors if more than 3 routes
+    if route_list:
+        for i, route in enumerate(route_list):
+            folium.GeoJson(
+                route["geometry"],
+                name=f"Route {i+1}",
+                style_function=lambda x, color=colors[i % len(colors)]: {'color': color, 'weight': 4, 'opacity':0.8}
+            ).add_to(m)
+            st.markdown(f"**Route {i+1}:** {route['distance_km']:.2f} km, {route['duration_min']:.1f} min")
     else:
+        # If ORS fails, draw simple straight line
         m = visualize_route_simple(
             st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
             st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
         )
+        st.markdown("⚠️ Could not fetch alternative routes, showing straight line.")
+
     st_folium(m, width=700, height=500)
 
     # --- ORS Driving Distance Display ---
