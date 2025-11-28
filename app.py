@@ -13,7 +13,7 @@ import math
 # ============================================
 # ORS API Key
 # ============================================
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6Ijc2Y2I5NmExMzM4MTRlNjhiOTY5OTIwMjk3MWRhMWExIiwiaCI6Im11cm11cjY0In0"
+ORS_API_KEY = "YOUR_ORS_API_KEY_HERE"
 
 # ============================================
 # Load Dataset
@@ -284,36 +284,32 @@ with col_map:
         st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
         st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
     )
+    if route:
+        map_center = [
+            (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
+            (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
+        ]
+        m = folium.Map(location=map_center, zoom_start=13)
+        folium.GeoJson(route, name="Route").add_to(m)
+        folium.Marker([st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
+                      tooltip="Restaurant", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker([st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
+                      tooltip="Delivery", icon=folium.Icon(color='red')).add_to(m)
+    else:
+        m = visualize_route_simple(
+            st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"],
+            st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]
+        )
+    st_folium(m, width=700, height=500)
 
-    map_center = [
-    (st.session_state["Restaurant_latitude"] + st.session_state["Delivery_location_latitude"]) / 2,
-    (st.session_state["Restaurant_longitude"] + st.session_state["Delivery_location_longitude"]) / 2
-]
-m = folium.Map(location=map_center, zoom_start=13)
-
-# Plot ORS route
-if route and 'features' in route and len(route['features']) > 0:
-    coords = route['features'][0]['geometry']['coordinates']
-    coords_latlon = [[lat, lon] for lon, lat in coords]
-    folium.PolyLine(coords_latlon, color='blue', weight=4, opacity=0.8).add_to(m)
-
-# Markers
-folium.Marker(
-    [st.session_state["Restaurant_latitude"], st.session_state["Restaurant_longitude"]],
-    tooltip="Restaurant", icon=folium.Icon(color='green')
-).add_to(m)
-folium.Marker(
-    [st.session_state["Delivery_location_latitude"], st.session_state["Delivery_location_longitude"]],
-    tooltip="Delivery", icon=folium.Icon(color='red')
-).add_to(m)
-
-st_folium(m, width=700, height=500)
-        
+    # --- Distance Calculator ---
 with col_input:
-        distance = haversine_distance(
-            st.session_state["Restaurant_latitude"],
-            st.session_state["Restaurant_longitude"],
-            st.session_state["Delivery_location_latitude"],
-            st.session_state["Delivery_location_longitude"]
+    st.markdown("### 📏 Distance Calculator (km)")
+
+    distance = haversine_distance(
+        st.session_state["Restaurant_latitude"],
+        st.session_state["Restaurant_longitude"],
+        st.session_state["Delivery_location_latitude"],
+        st.session_state["Delivery_location_longitude"]
     )
-st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
+    st.metric("Distance between Restaurant & Delivery", f"{distance:.2f} km")
