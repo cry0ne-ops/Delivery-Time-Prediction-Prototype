@@ -279,7 +279,7 @@ with col_input:
 
 # --- Column 2: Predictions & Metrics ---
 with col_pred:
-    st.subheader("📊 Predictions & Metrics")
+    st.subheader("📊 Prediction ")
     if "predictions" in st.session_state:
         preds = st.session_state["predictions"]
         pred_col1, pred_col2, pred_col3 = st.columns(3)
