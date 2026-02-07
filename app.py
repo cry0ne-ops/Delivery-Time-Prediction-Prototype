@@ -287,11 +287,6 @@ with col_pred:
         pred_col2.metric("Decision Tree", f"{preds['Decision Tree']} min")
         pred_col3.metric("Random Forest", f"{preds['Random Forest']} min")
 
-    if "metrics_df" in st.session_state:
-        st.subheader("📈 Model Accuracy on Test Set")
-        st.dataframe(st.session_state["metrics_df"].style.format("{:.2f}"))
-        best_model = st.session_state["metrics_df"]["RMSE"].idxmin()
-
 # --- Column 3: Map ---
 with col_map:
     st.subheader("🗺️ Delivery Route")
